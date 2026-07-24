@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const e = $json;\nreturn [{ json: {\n  workflow: e.workflow?.name,\n  failed_node: e.execution?.lastNodeExecuted,\n  error_message: e.execution?.error?.message,\n  payload: JSON.stringify(e.execution?.error || {}),\n  timestamp: new Date().toISOString()\n} }];\n"
+        "jsCode": "const e = $input.first().json;\nreturn [{ json: {\n  workflow: e.workflow?.name,\n  failed_node: e.execution?.lastNodeExecuted,\n  error_message: e.execution?.error?.message,\n  payload: JSON.stringify(e.execution?.error || {}),\n  timestamp: new Date().toISOString()\n} }];\n"
       },
       "id": "code-extract-error",
       "name": "Extract Error Details",

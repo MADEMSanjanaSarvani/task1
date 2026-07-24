@@ -284,7 +284,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Map Pexels' response shape onto the same {video_url, text} shape the AI video gen branch produces.\nconst d = $json;\nconst sceneText = $('Split Into Scenes').item.json.text || '';\nconst file = (d.videos && d.videos[0] && d.videos[0].video_files && d.videos[0].video_files.find(f => f.quality === 'hd')) || (d.videos && d.videos[0] && d.videos[0].video_files && d.videos[0].video_files[0]);\nreturn [{ json: { text: sceneText, video_url: file ? file.link : null, image_fallback_url: file ? file.link : null } }];\n"
+        "jsCode": "// Map Pexels' response shape onto the same {video_url, text} shape the AI video gen branch produces.\nconst d = $input.first().json;\nconst sceneText = $('Split Into Scenes').item.json.text || '';\nconst file = (d.videos && d.videos[0] && d.videos[0].video_files && d.videos[0].video_files.find(f => f.quality === 'hd')) || (d.videos && d.videos[0] && d.videos[0].video_files && d.videos[0].video_files[0]);\nreturn [{ json: { text: sceneText, video_url: file ? file.link : null, image_fallback_url: file ? file.link : null } }];\n"
       },
       "id": "code-normalize-stock",
       "name": "Normalize Stock Footage Result",
@@ -294,7 +294,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Re-attach the original scene text (dropped by the HTTP Request node's response body) onto the AI video gen result.\nconst sceneText = $('Split Into Scenes').item.json.text || '';\nreturn [{ json: { text: sceneText, video_url: $json.video_url, image_fallback_url: null } }];\n"
+        "jsCode": "// Re-attach the original scene text (dropped by the HTTP Request node's response body) onto the AI video gen result.\nconst sceneText = $('Split Into Scenes').item.json.text || '';\nreturn [{ json: { text: sceneText, video_url: $input.first().json.video_url, image_fallback_url: null } }];\n"
       },
       "id": "code-normalize-ai-video",
       "name": "Normalize AI Video Result",
@@ -387,7 +387,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Automated QC: duration and aspect ratio sanity checks (aspect enforced by Shotstack output.size).\nconst render = $json.response;\nconst durationOk = render.data && render.data.duration >= 20 && render.data.duration <= 60;\nconst issues = [];\nif (!durationOk) issues.push('duration_out_of_range');\nreturn [{ json: { video_url: render.url, duration: render.data?.duration, qc_passed: issues.length === 0, qc_issues: issues } }];\n"
+        "jsCode": "// Automated QC: duration and aspect ratio sanity checks (aspect enforced by Shotstack output.size).\nconst render = $input.first().json.response;\nconst durationOk = render.data && render.data.duration >= 20 && render.data.duration <= 60;\nconst issues = [];\nif (!durationOk) issues.push('duration_out_of_range');\nreturn [{ json: { video_url: render.url, duration: render.data?.duration, qc_passed: issues.length === 0, qc_issues: issues } }];\n"
       },
       "id": "code-quality-check",
       "name": "Automated Quality Check",
