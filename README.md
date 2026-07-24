@@ -7,11 +7,15 @@ best ones into a full content package (SEO blog, short-form social posts, YouTub
 script, newsletter), generates 10 fresh AI business ideas, finds student-friendly
 opportunities, detects viral trends, scores everything on 8 dimensions, and produces
 a daily report that's synced to Postgres, Google Sheets, Airtable, Notion, and
-Markdown/JSON files.
+Markdown/JSON files. A fifth workflow turns the same daily trend pool into **3
+AI-generated YouTube Shorts published to your channel every day**, complete with
+fact-checking, voiceover, AI video generation (with stock-footage fallback), thumbnail,
+SEO metadata, and automated QC before publish.
 
 Import order: `workflows/error-handler-workflow.json` →
 `workflows/01-trend-research-workflow.json` → `workflows/02-content-generation-workflow.json`
-→ `workflows/03-business-student-viral-workflow.json` → `workflows/04-daily-report-workflow.json`.
+→ `workflows/03-business-student-viral-workflow.json` → `workflows/04-daily-report-workflow.json`
+→ `workflows/05-youtube-shorts-pipeline.json`.
 Set every workflow's `settings.errorWorkflow` to the imported Error Handler's real
 workflow ID after import (the placeholder `error-workflow-id` in each JSON file must
 be replaced).
@@ -68,9 +72,25 @@ flowchart TD
       AC --> AH[Discord notification]
     end
 
+    subgraph WF5 [05 - YouTube Shorts Pipeline - 3x per day]
+      SA[Schedule 09:00 / 14:00 / 19:00] --> SB[Get Next Candidate Topic]
+      SB --> SC[Mark Topic Used]
+      SC --> SD[Generate Shorts Script - OpenAI]
+      SD --> SE[Fact Check - OpenAI]
+      SE --> SF{Confidence >= 90%?}
+      SF -- No, under 3 tries --> SG[Rewrite Script] --> SE
+      SF -- No, 3rd fail --> SH[Manual Review Alert]
+      SF -- Yes --> SI[ElevenLabs Voiceover]
+      SI --> SJ[Scene Prompts] --> SK[Per-scene: AI Video Gen or Pexels Fallback]
+      SK --> SL[Shotstack Render] --> SM[Poll Until Done] --> SN{QC Passed?}
+      SN -- No --> SO[Discord Alert, Not Published]
+      SN -- Yes --> SP[Thumbnail + SEO Metadata] --> SQ[Download Video] --> SR[Upload to YouTube] --> SS[Set Thumbnail] --> ST[(published_videos)] --> SU[Discord Success]
+    end
+
     J1 -.-> K
     J2 -.-> U
     X -.-> Y
+    F -.-> SB
 
     subgraph ErrorHandler [Global Error Trigger]
       EA[Any node fails, any workflow] --> EB[(failed_runs)]
@@ -138,7 +158,26 @@ flowchart TD
 | **Sync to Notion (×4 databases)** | Trends, Products, Content, Reports databases (configure the 4 database IDs in `.env`) |
 | **Notify Report Ready (Discord)** | Posts the day's headline numbers |
 
-**Error handler workflow** (wired as the global `errorWorkflow` for all four
+### Workflow 05 — YouTube Shorts Pipeline (3×/day)
+
+| Node | Purpose |
+|---|---|
+| **Shorts Schedule Trigger (3x/day)** | Cron `0 9,14,19 * * *` — 3 firings/day, each publishing 1 Short |
+| **Get Next Candidate Topic** | Pulls the single highest-scoring `trend_topics` row still marked `candidate` — same pool workflow 01 fills at 06:00, so the 3 daily firings each consume a different topic |
+| **Mark Topic Used** | Flips that row to `status='used'` immediately, so the next firing (and workflow 02/03/04) don't reuse it |
+| **Generate Shorts Script (OpenAI)** | 30–55s script (110–150 words): title, hook, curiosity gap, explanation, CTA to "link in bio", keywords, hashtags |
+| **Fact Check → Confidence >= 90%?** | Independent OpenAI verification pass; below threshold routes to **Rewrite Script**, looped back into fact-check, capped at 3 attempts by `_rewrite_count`, then to a Discord "needs manual review" alert instead of an infinite loop |
+| **Generate Voiceover (ElevenLabs)** | TTS → MP3 binary |
+| **Generate Scene Prompts / Split Into Scenes** | Splits the script into sentences, builds one cinematic 9:16 prompt per sentence, loops each through video generation |
+| **AI Video Gen (Runway/Kling/Veo)** | Per-scene AI video clip; `continueOnFail` + **Fallback: Stock Footage (Pexels)** on failure/timeout, both normalized to the same shape before merging |
+| **Build Shotstack Timeline → Render → Poll → Automated Quality Check** | Assembles captions/transitions/zoom/audio, renders, polls until done, then checks duration (20–60s) |
+| **QC Passed?** | Failing QC alerts Discord and stops — never uploads a broken render |
+| **Generate Thumbnail (Bannerbear) + Generate SEO Metadata (OpenAI)** | Run in parallel, merged before upload |
+| **Download Rendered Video / Download Thumbnail Image** | Pulls the actual MP4/PNG bytes into binary (`data`/`thumbnail`) — Shotstack and Bannerbear return URLs, not files, so these HTTP nodes are required before the YouTube node can attach them |
+| **Upload to YouTube** | Uploads `private` with `publishAt` ~1h out (manual spot-check buffer before going public) |
+| **Set YouTube Thumbnail → Log Published Video (Postgres) → Notify Success (Discord)** | Attaches thumbnail, logs to `published_videos`, posts the live link |
+
+**Error handler workflow** (wired as the global `errorWorkflow` for all five
 pipelines): catches any node failure anywhere in the system, logs it to
 `failed_runs`, and alerts both Discord and Gmail with the failed workflow/node/message.
 
@@ -159,6 +198,11 @@ pipelines): catches any node failure anywhere in the system, logs it to
 | Database | Postgres/Supabase (this repo's default, free self-hosted or Supabase free tier) | — |
 | Secondary storage | Airtable (free tier: 1,000 records/base), Google Sheets (free), Notion (free) | All have generous free tiers already |
 | Alerts | Discord webhook (free), Gmail (free) | No paid alternative needed |
+| Voiceover | ElevenLabs (~$5–22/mo) | Piper/Coqui TTS self-hosted (free); Google Cloud TTS free tier (1M chars/mo) |
+| AI video generation | Runway/Kling/Veo API (usage-based, ~$0.05–0.50/sec) | Skip AI video and use Pexels/Pixabay stock footage as the *primary* source instead of fallback — near-free |
+| Video editing/render | Shotstack (~$0.40–1/render) | Self-hosted FFmpeg + Remotion (free, more setup) |
+| Thumbnail | Bannerbear (~$49/mo) | OpenAI image generation + a Code node compositing text via `node-canvas` |
+| YouTube upload/metadata | YouTube Data API v3 | Free — quota-limited (10k units/day; an upload costs ~1,600 units, so ~6 uploads/day max per project before requesting a quota increase) |
 
 ---
 
@@ -174,12 +218,14 @@ Create these under **Settings → Credentials**:
 6. `Notion account` (internal integration token, shared with the 4 target databases)
 7. `Discord Webhook` — per-workflow webhook URL
 8. `Gmail account` (OAuth2) — for failure emails
+9. `YouTube OAuth2` — Google Cloud OAuth client with `youtube.upload`, `youtube.readonly`
+   scopes, consented by the channel's owning Google account (walkthrough: section 9)
 
-HTTP Request nodes calling Product Hunt, Hacker News, GitHub, SerpAPI, and NewsAPI
-use header/query auth pulled from environment variables (see `docker/.env.example`)
-rather than n8n credential objects, since these are simple API-key/token services —
-convert any of them to a **Generic Header Auth** credential if you prefer not to
-store keys in `.env`.
+HTTP Request nodes calling Product Hunt, Hacker News, GitHub, SerpAPI, NewsAPI,
+ElevenLabs, Runway/Kling/Veo, Pexels, Shotstack, and Bannerbear use header/query auth
+pulled from environment variables (see `docker/.env.example`) rather than n8n
+credential objects, since these are simple API-key/token services — convert any of
+them to a **Generic Header Auth** credential if you prefer not to store keys in `.env`.
 
 ---
 
@@ -203,7 +249,8 @@ cp docker/.env.example docker/.env
 │   ├── 01-trend-research-workflow.json           # Steps 1-3
 │   ├── 02-content-generation-workflow.json       # Step 4
 │   ├── 03-business-student-viral-workflow.json   # Steps 5-7
-│   └── 04-daily-report-workflow.json             # Steps 9-10
+│   ├── 04-daily-report-workflow.json             # Steps 9-10
+│   └── 05-youtube-shorts-pipeline.json           # 3 Shorts/day, sourced from Step 1's trend pool
 ├── db/
 │   └── schema.sql                                 # Postgres/Supabase schema
 ├── docker/
@@ -230,6 +277,13 @@ cp docker/.env.example docker/.env
 - **Global Error Trigger**: every workflow's `settings.errorWorkflow` points at
   `error-handler-workflow.json`, which logs to `failed_runs` and pages Discord + Gmail
   for anything not already caught locally.
+- **Shorts fact-check loop**: capped at 3 rewrite attempts (`_rewrite_count`), then
+  routes to a Discord "needs manual review" alert instead of publishing an
+  unverified script or looping forever.
+- **Shorts render polling**: `Poll Render Status` loops on `Wait for Render` until
+  Shotstack reports `done`, with a max-tries cap (15 × 15s) to prevent infinite polling.
+- **Shorts QC gate**: failed quality checks (duration out of the 20–60s Shorts range)
+  never reach the YouTube upload step — they route to a Discord alert instead.
 
 ---
 
@@ -242,23 +296,64 @@ cp docker/.env.example docker/.env
 5. `docker compose up -d` — starts Postgres + n8n.
 6. Open `http://<server-ip>:5678`, log in with your basic-auth credentials.
 7. **Import workflows** in this order: Error Handler → 01 Trend Research → 02 Content
-   Generation → 03 Business/Student/Viral → 04 Daily Report
+   Generation → 03 Business/Student/Viral → 04 Daily Report → 05 YouTube Shorts
    (`Workflows → Import from File`, pick each JSON from `workflows/`).
 8. Set every workflow's error workflow to the imported Error Handler
    (`Workflow Settings → Error Workflow`) — this replaces the placeholder
    `error-handler-workflow-id` string baked into each JSON file.
 9. Update the three `Execute Workflow` nodes (in WF01 → WF02/WF03, and WF03 → WF04)
    to point at the actual imported workflow IDs — n8n reassigns IDs on import.
-10. Configure the 8 credential types listed in section 4, and the 4 Notion database
-    IDs / Google Sheet ID / Airtable base ID in `.env`.
+   Workflow 05 doesn't need this: it reads directly from `trend_topics` on its own
+   schedule rather than being triggered by another workflow.
+10. Configure the 9 credential types listed in section 4 (including `YouTube OAuth2`
+    — see section 9 if you haven't set this up before), and the 4 Notion database
+    IDs / Google Sheet ID / Airtable base ID / `YT_CHANNEL_ID` in `.env`.
 11. Run workflow 01 once manually to verify each branch before activating the
-    schedule trigger.
+    schedule trigger; then run workflow 05 once manually against a leftover
+    `candidate` topic to verify the full render → upload chain before activating
+    its schedule.
 12. Put a reverse proxy (Caddy/Nginx) with TLS in front of port 5678 for anything
     beyond local testing — see security notes below.
 
 ---
 
-## 9. API Cost Estimation (per daily run, rough)
+## 9. YouTube OAuth2 Setup (Google Cloud Console)
+
+Workflow 05 uploads real videos to your channel, which requires a Google Cloud
+OAuth client — there's no API-key shortcut for this. Walkthrough:
+
+1. **Create/select a Google Cloud project**: [console.cloud.google.com](https://console.cloud.google.com) →
+   create a new project (or reuse one) dedicated to this automation.
+2. **Enable the YouTube Data API v3**: in the project, go to
+   *APIs & Services → Library*, search "YouTube Data API v3", click **Enable**.
+3. **Configure the OAuth consent screen**: *APIs & Services → OAuth consent screen*.
+   - User type: **External** (unless you have a Google Workspace org, then Internal
+     is simpler).
+   - Fill in app name, support email, developer contact.
+   - Scopes: add `.../auth/youtube.upload` and `.../auth/youtube.readonly`.
+   - Test users: add the Google account that owns the target YouTube channel (while
+     the app is in "Testing" mode, only listed test users can authorize it).
+4. **Create OAuth client credentials**: *APIs & Services → Credentials → Create
+   Credentials → OAuth client ID*.
+   - Application type: **Web application**.
+   - Authorized redirect URI: `https://<your-n8n-host>/rest/oauth2-credential/callback`
+     (n8n shows you this exact URL when you create the credential in the next step —
+     copy it from there to avoid typos).
+   - Save the generated **Client ID** and **Client Secret**.
+5. **Create the credential in n8n**: *Settings → Credentials → New → YouTube OAuth2
+   API*. Paste the Client ID/Secret, click **Connect my account**, and sign in with
+   the Google account that owns the channel — approve the consent screen.
+6. **Publishing status**: while the OAuth consent screen is in "Testing" mode, tokens
+   expire every 7 days and only test users can connect. For a long-running unattended
+   pipeline, submit the app for **verification** (Google reviews the requested
+   scopes) so tokens don't expire — required if `youtube.upload` is requested and you
+   want this to run for months without re-authenticating.
+7. **Find your channel ID** for `YT_CHANNEL_ID` in `.env`: YouTube Studio →
+   Settings → Channel → Advanced settings, or `https://www.youtube.com/account_advanced`.
+
+---
+
+## 10. API Cost Estimation (per daily run, rough)
 
 | Stage | Cost |
 |---|---|
@@ -273,9 +368,25 @@ At 1 run/day this is roughly **$6–15/month** in OpenAI spend, plus free-tier u
 of every other API in section 3. Swap `OPENAI_MODEL`/`OPENAI_RESEARCH_MODEL` to a
 smaller model or a local Ollama model to push this toward zero.
 
+### Per-video cost (workflow 05, AI video generation mode)
+
+| Stage | Cost |
+|---|---|
+| Script + fact-check + SEO metadata (up to 4 GPT-4.1 calls incl. one possible rewrite) | ~$0.02–0.06 |
+| ElevenLabs voiceover (~130 words) | ~$0.02–0.05 |
+| AI video gen (5–8 scenes × ~5s clips, Runway/Kling/Veo) | ~$1.50–4.00 — **this dominates the cost** |
+| Shotstack render | ~$0.40–1.00 |
+| Bannerbear thumbnail | ~$0.05 |
+| **Total per video** | **~$2–5.20** |
+
+At 3 videos/day that's roughly **$180–470/month**. Since you chose full AI video
+generation over stock footage, this is the real number to budget for — see section
+12 for how to cut it by switching individual topics to the stock-footage fallback
+path once they're proven low-value, without touching the workflow's structure.
+
 ---
 
-## 10. Security Best Practices
+## 11. Security Best Practices
 
 - Never commit `.env` — it holds every API key. Add it to `.gitignore`.
 - Use n8n's built-in credential store (encrypted at rest via `N8N_ENCRYPTION_KEY`)
@@ -284,15 +395,21 @@ smaller model or a local Ollama model to push this toward zero.
   services (Product Hunt, GitHub, SerpAPI, NewsAPI).
 - Put n8n behind a reverse proxy with TLS and keep `N8N_BASIC_AUTH_ACTIVE=true`, or
   better, put it behind SSO/VPN if self-hosting long-term.
-- Scope every OAuth credential (Google Sheets, Gmail) to only the required scopes;
+- Scope every OAuth credential (Google Sheets, Gmail, **YouTube**) to only the
+  required scopes (`youtube.upload` + `youtube.readonly` — never request
+  `youtube.force-ssl` or channel-management scopes this pipeline doesn't use);
   rotate refresh tokens if the server is ever exposed.
 - Store the Postgres volume on encrypted disk if hosting on a cloud VM.
 - Rotate all API keys periodically and immediately on suspected leak (e.g., a key
   pasted into a public workflow export).
+- Uploads default to `privacyStatus: private` with a 1-hour `publishAt` buffer —
+  don't change this to `public` immediate-publish until you've watched at least a
+  few days of unattended runs; a bad script or fact-check false-pass otherwise goes
+  straight to your live channel.
 
 ---
 
-## 11. Optimization Suggestions
+## 12. Optimization Suggestions
 
 - **Cache trend results** for a few hours (Code node + a small KV table) if you ever
   move to multiple runs/day, to avoid redundant API calls.
@@ -308,3 +425,12 @@ smaller model or a local Ollama model to push this toward zero.
 - **Prefer a single richer OpenAI call over many small ones** where the schema allows
   it (already done for short-form social content and for freelancing/product
   research) to reduce latency and per-call overhead.
+- **Bias workflow 05 toward stock footage for lower-scored topics**: change the
+  `AI Video Gen (Runway/Kling/Veo)` node to `continueOnFail`-skip straight to Pexels
+  when `overall_score` is below a threshold, reserving the ~$2–5/video AI generation
+  spend for only your highest-scoring daily topic — this alone can cut the section-10
+  monthly estimate by roughly two-thirds without any structural workflow change.
+- **Watch YouTube Data API quota**: each upload costs ~1,600 units against the
+  10,000/day free quota; at 3 uploads/day plus the analytics/metadata calls this
+  workflow makes, you have headroom, but request a quota increase in Google Cloud
+  Console before adding more channels or more daily uploads.

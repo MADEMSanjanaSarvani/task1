@@ -203,6 +203,25 @@ CREATE TABLE IF NOT EXISTS daily_reports (
     created_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- YouTube Shorts pipeline: one row per published reel (3/day, sourced from trend_topics)
+CREATE TABLE IF NOT EXISTS published_videos (
+    id                BIGSERIAL PRIMARY KEY,
+    run_id            TEXT NOT NULL,
+    topic_id          BIGINT REFERENCES trend_topics(id),
+    youtube_video_id  TEXT UNIQUE,
+    title             TEXT NOT NULL,
+    script            TEXT,
+    fact_check_confidence NUMERIC(5,2),
+    rewrite_count     INT DEFAULT 0,
+    thumbnail_status  TEXT,
+    video_url         TEXT,
+    duration_seconds  NUMERIC(6,2),
+    status            TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('rendering','published','failed','archived')),
+    published_at      TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_published_videos_run ON published_videos (run_id);
+
 -- error handling log, shared by every workflow's error trigger
 CREATE TABLE IF NOT EXISTS failed_runs (
     id            BIGSERIAL PRIMARY KEY,
