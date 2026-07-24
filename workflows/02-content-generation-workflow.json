@@ -1,0 +1,335 @@
+{
+  "name": "AI Content Automation - 02 Content Generation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-trigger",
+      "name": "When Called by Trend Research",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [ -2200, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": { "value": "public" },
+        "table": { "value": "trend_topics" },
+        "sort": { "values": [ { "column": "overall_score", "direction": "DESC" } ] },
+        "limit": 1,
+        "where": { "values": [ { "column": "status", "condition": "equal", "value": "candidate" } ] },
+        "options": {}
+      },
+      "id": "postgres-get-top-topic",
+      "name": "Get Top Topic (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -1980, 0 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.7, "responseFormat": "json_object", "maxTokens": 4000 },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert SEO Content Researcher and Blog Writer. Write a factually accurate, SEO-optimized blog article of at least 1500 words about the given trending opportunity. Return strict JSON: {\"title\": string, \"meta_description\": string, \"seo_keywords\": [string], \"introduction\": string, \"main_content\": string (markdown with H2/H3 headers, at least 1200 words), \"conclusion\": string, \"faqs\": [{\"question\": string, \"answer\": string}] (at least 5)}. Avoid duplicate or outdated information, include actionable recommendations, and prioritize high-value monetizable opportunities."
+            },
+            {
+              "role": "user",
+              "content": "=Write the blog article for this trending opportunity:\\nTitle: {{$json.title}}\\nCategory: {{$json.category}}\\nScores: demand {{$json.demand_score}}, profitability {{$json.profitability_score}}, competition {{$json.competition_score}}, SEO {{$json.seo_score}}"
+            }
+          ]
+        }
+      },
+      "id": "openai-blog",
+      "name": "Generate SEO Blog Article (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -1760, 0 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const topic = $('Get Top Topic (Postgres)').first().json;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst blog = JSON.parse(raw);\nconst wordCount = (blog.main_content || '').split(/\\s+/).filter(Boolean).length + (blog.introduction || '').split(/\\s+/).filter(Boolean).length + (blog.conclusion || '').split(/\\s+/).filter(Boolean).length;\nreturn [{ json: { run_id: topic.run_id, topic_id: topic.id, topic_title: topic.title, word_count: wordCount, ...blog } }];\n"
+      },
+      "id": "code-parse-blog",
+      "name": "Parse & Validate Blog (>=1500 words)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1540, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "blog_posts" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "topic_id": "={{$json.topic_id}}", "title": "={{$json.title}}",
+            "meta_description": "={{$json.meta_description}}", "seo_keywords": "={{$json.seo_keywords}}",
+            "introduction": "={{$json.introduction}}", "main_content": "={{$json.main_content}}",
+            "conclusion": "={{$json.conclusion}}", "faqs": "={{JSON.stringify($json.faqs)}}", "word_count": "={{$json.word_count}}"
+          }
+        },
+        "options": { "outputColumns": [ "id" ] }
+      },
+      "id": "postgres-save-blog",
+      "name": "Save Blog Post (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -1320, 0 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.first().json;\nconst md = `# ${b.title}\\n\\n_${b.meta_description}_\\n\\n${b.introduction}\\n\\n${b.main_content}\\n\\n${b.conclusion}\\n\\n## FAQs\\n\\n` + (b.faqs || []).map(f => `**${f.question}**\\n${f.answer}`).join('\\n\\n');\nconst binary = await this.helpers.prepareBinaryData(Buffer.from(md, 'utf8'), `${b.run_id}-blog.md`, 'text/markdown');\nreturn [{ json: b, binary: { data: binary } }];\n"
+      },
+      "id": "code-build-blog-markdown",
+      "name": "Build Blog Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1100, -260 ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{$env.OUTPUT_DIR || '/home/node/output'}}/blogs/{{$json.run_id}}-blog.md",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "write-blog-markdown",
+      "name": "Write Blog Markdown File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [ -880, -260 ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.75, "responseFormat": "json_object" },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a social media copywriter. Repurpose the given blog article into short-form content. Return strict JSON: {\"twitter_thread\": string (5-8 numbered tweets), \"linkedin_post\": string, \"instagram_caption\": string (with emojis and hashtags), \"facebook_post\": string, \"telegram_post\": string, \"whatsapp_broadcast\": string (short, high-urgency)}."
+            },
+            {
+              "role": "user",
+              "content": "=Blog title: {{$('Parse & Validate Blog (>=1500 words)').item.json.title}}\\nIntroduction: {{$('Parse & Validate Blog (>=1500 words)').item.json.introduction}}\\nKey keywords: {{$('Parse & Validate Blog (>=1500 words)').item.json.seo_keywords.join(', ')}}"
+            }
+          ]
+        }
+      },
+      "id": "openai-social",
+      "name": "Generate Short Content (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -1100, 0 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const blog = $('Parse & Validate Blog (>=1500 words)').first().json;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst social = JSON.parse(raw);\nreturn [{ json: { run_id: blog.run_id, blog_post_id: blog.id, ...social } }];\n"
+      },
+      "id": "code-parse-social",
+      "name": "Parse Short Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -880, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "social_content" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "blog_post_id": "={{$json.blog_post_id}}",
+            "twitter_thread": "={{$json.twitter_thread}}", "linkedin_post": "={{$json.linkedin_post}}",
+            "instagram_caption": "={{$json.instagram_caption}}", "facebook_post": "={{$json.facebook_post}}",
+            "telegram_post": "={{$json.telegram_post}}", "whatsapp_broadcast": "={{$json.whatsapp_broadcast}}"
+          }
+        }
+      },
+      "id": "postgres-save-social",
+      "name": "Save Short Content (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -660, 0 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.75, "responseFormat": "json_object" },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a YouTube content strategist. Turn the blog article into a YouTube video package. Return strict JSON: {\"video_title\": string (under 100 chars, hook-driven), \"thumbnail_idea\": string, \"script\": string (full spoken script, 3-6 minutes), \"description\": string, \"tags\": [string], \"hashtags\": [string]}."
+            },
+            {
+              "role": "user",
+              "content": "=Blog title: {{$('Parse & Validate Blog (>=1500 words)').item.json.title}}\\nMain content summary: {{$('Parse & Validate Blog (>=1500 words)').item.json.introduction}}"
+            }
+          ]
+        }
+      },
+      "id": "openai-youtube",
+      "name": "Generate YouTube Content (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -660, -160 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const blog = $('Parse & Validate Blog (>=1500 words)').first().json;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst yt = JSON.parse(raw);\nreturn [{ json: { run_id: blog.run_id, blog_post_id: blog.id, ...yt } }];\n"
+      },
+      "id": "code-parse-youtube",
+      "name": "Parse YouTube Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -440, -160 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "youtube_content" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "blog_post_id": "={{$json.blog_post_id}}", "video_title": "={{$json.video_title}}",
+            "thumbnail_idea": "={{$json.thumbnail_idea}}", "script": "={{$json.script}}", "description": "={{$json.description}}",
+            "tags": "={{$json.tags}}", "hashtags": "={{$json.hashtags}}"
+          }
+        }
+      },
+      "id": "postgres-save-youtube",
+      "name": "Save YouTube Content (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -220, -160 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.6, "responseFormat": "json_object" },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a newsletter editor for a daily opportunities newsletter. Return strict JSON: {\"weekly_trends\": string, \"market_insights\": string, \"opportunities\": string, \"actionable_tips\": string, \"recommended_tools\": string, \"business_ideas\": string}. Keep each section concise (100-200 words), punchy, and actionable."
+            },
+            {
+              "role": "user",
+              "content": "=Base the newsletter on this run's top opportunity: {{$('Parse & Validate Blog (>=1500 words)').item.json.title}} (category: {{ $('Get Top Topic (Postgres)').item.json.category }})."
+            }
+          ]
+        }
+      },
+      "id": "openai-newsletter",
+      "name": "Generate Newsletter (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -220, 160 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const runId = $('Parse & Validate Blog (>=1500 words)').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst nl = JSON.parse(raw);\nreturn [{ json: { run_id: runId, ...nl } }];\n"
+      },
+      "id": "code-parse-newsletter",
+      "name": "Parse Newsletter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 0, 160 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "newsletters" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "weekly_trends": "={{$json.weekly_trends}}", "market_insights": "={{$json.market_insights}}",
+            "opportunities": "={{$json.opportunities}}", "actionable_tips": "={{$json.actionable_tips}}",
+            "recommended_tools": "={{$json.recommended_tools}}", "business_ideas": "={{$json.business_ideas}}"
+          }
+        }
+      },
+      "id": "postgres-save-newsletter",
+      "name": "Save Newsletter (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ 220, 160 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {},
+      "id": "noop-content-done",
+      "name": "Content Generation Complete",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [ 440, 0 ]
+    }
+  ],
+  "connections": {
+    "When Called by Trend Research": { "main": [ [ { "node": "Get Top Topic (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Get Top Topic (Postgres)": { "main": [ [ { "node": "Generate SEO Blog Article (OpenAI)", "type": "main", "index": 0 } ] ] },
+    "Generate SEO Blog Article (OpenAI)": { "main": [ [ { "node": "Parse & Validate Blog (>=1500 words)", "type": "main", "index": 0 } ] ] },
+    "Parse & Validate Blog (>=1500 words)": { "main": [ [ { "node": "Save Blog Post (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Save Blog Post (Postgres)": { "main": [ [
+      { "node": "Build Blog Markdown", "type": "main", "index": 0 },
+      { "node": "Generate Short Content (OpenAI)", "type": "main", "index": 0 }
+    ] ] },
+    "Build Blog Markdown": { "main": [ [ { "node": "Write Blog Markdown File", "type": "main", "index": 0 } ] ] },
+    "Generate Short Content (OpenAI)": { "main": [ [ { "node": "Parse Short Content", "type": "main", "index": 0 } ] ] },
+    "Parse Short Content": { "main": [ [
+      { "node": "Save Short Content (Postgres)", "type": "main", "index": 0 },
+      { "node": "Generate YouTube Content (OpenAI)", "type": "main", "index": 0 }
+    ] ] },
+    "Generate YouTube Content (OpenAI)": { "main": [ [ { "node": "Parse YouTube Content", "type": "main", "index": 0 } ] ] },
+    "Parse YouTube Content": { "main": [ [ { "node": "Save YouTube Content (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Save YouTube Content (Postgres)": { "main": [ [ { "node": "Generate Newsletter (OpenAI)", "type": "main", "index": 0 } ] ] },
+    "Generate Newsletter (OpenAI)": { "main": [ [ { "node": "Parse Newsletter", "type": "main", "index": 0 } ] ] },
+    "Parse Newsletter": { "main": [ [ { "node": "Save Newsletter (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Save Newsletter (Postgres)": { "main": [ [ { "node": "Content Generation Complete", "type": "main", "index": 0 } ] ] },
+    "Write Blog Markdown File": { "main": [ [ { "node": "Content Generation Complete", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler-workflow-id"
+  },
+  "pinData": {},
+  "versionId": "1"
+}

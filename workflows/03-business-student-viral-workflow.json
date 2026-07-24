@@ -1,0 +1,280 @@
+{
+  "name": "AI Content Automation - 03 Business Ideas, Student Opportunities & Viral Detection",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-trigger",
+      "name": "When Called by Trend Research",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [ -2000, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": { "value": "public" },
+        "table": { "value": "trend_topics" },
+        "sort": { "values": [ { "column": "overall_score", "direction": "DESC" } ] },
+        "limit": 15,
+        "where": { "values": [ { "column": "status", "condition": "equal", "value": "candidate" } ] },
+        "options": {}
+      },
+      "id": "postgres-get-topics",
+      "name": "Get Top 15 Topics (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -1780, 0 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nreturn [{ json: { run_id: items[0]?.run_id, topics: items } }];\n"
+      },
+      "id": "code-aggregate-topics",
+      "name": "Aggregate Topics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1560, 0 ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_RESEARCH_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.8, "responseFormat": "json_object" },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an AI Business Idea Consultant. Generate exactly 10 new AI business ideas based on the given trending topics. Return strict JSON: {\"ideas\": [{\"idea_name\": string, \"problem\": string, \"solution\": string, \"target_users\": string, \"revenue_model\": string, \"estimated_dev_cost_usd\": number, \"market_size\": string, \"monthly_revenue_potential_usd\": number, \"mvp_features\": [string], \"ai_features\": [string], \"monetization_strategy\": string, \"demand_score\": number, \"profitability_score\": number, \"difficulty_score\": number, \"automation_score\": number}]}. All *_score fields 0-100. Prioritize high demand, low competition, high monetization, global market, beginner-friendly execution, and AI automation possibilities."
+            },
+            {
+              "role": "user",
+              "content": "=Trending topics:\\n{{ JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category}))) }}\\n\\nGenerate 10 fresh, unique AI business ideas now."
+            }
+          ]
+        }
+      },
+      "id": "openai-business-ideas",
+      "name": "Generate 10 AI Business Ideas (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -1340, -160 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nif (!parsed.ideas || parsed.ideas.length < 10) throw new Error('Expected 10 AI business ideas, got ' + (parsed.ideas || []).length);\nreturn parsed.ideas.map(idea => ({ json: { run_id: runId, ...idea } }));\n"
+      },
+      "id": "code-parse-business-ideas",
+      "name": "Parse & Validate 10 Ideas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1120, -160 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "ai_business_ideas" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "idea_name": "={{$json.idea_name}}", "problem": "={{$json.problem}}",
+            "solution": "={{$json.solution}}", "target_users": "={{$json.target_users}}", "revenue_model": "={{$json.revenue_model}}",
+            "estimated_dev_cost_usd": "={{$json.estimated_dev_cost_usd}}", "market_size": "={{$json.market_size}}",
+            "monthly_revenue_potential_usd": "={{$json.monthly_revenue_potential_usd}}", "mvp_features": "={{$json.mvp_features}}",
+            "ai_features": "={{$json.ai_features}}", "monetization_strategy": "={{$json.monetization_strategy}}",
+            "demand_score": "={{$json.demand_score}}", "profitability_score": "={{$json.profitability_score}}",
+            "difficulty_score": "={{$json.difficulty_score}}", "automation_score": "={{$json.automation_score}}"
+          }
+        }
+      },
+      "id": "postgres-save-business-ideas",
+      "name": "Save AI Business Ideas (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -900, -160 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_RESEARCH_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.7, "responseFormat": "json_object" },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a Student Income Opportunities researcher. Based on the trending topics, find at least 8 opportunities for students: online earning opportunities, internship ideas, digital product ideas, AI tools for students, freelancing ideas, and remote jobs. Return strict JSON: {\"opportunities\": [{\"opportunity_name\": string, \"opportunity_type\": \"online_earning\"|\"internship\"|\"digital_product\"|\"ai_tool\"|\"freelancing\"|\"remote_job\", \"skill_level\": \"beginner\"|\"intermediate\"|\"advanced\", \"expected_income\": string, \"time_required\": string, \"platforms\": string, \"resources\": string}]}."
+            },
+            {
+              "role": "user",
+              "content": "=Trending topics:\\n{{ JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category}))) }}\\n\\nGenerate the student opportunities now."
+            }
+          ]
+        }
+      },
+      "id": "openai-student",
+      "name": "Generate Student Opportunities (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -1340, 0 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.opportunities.map(o => ({ json: { run_id: runId, ...o } }));\n"
+      },
+      "id": "code-parse-student",
+      "name": "Parse Student Opportunities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1120, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "student_opportunities" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "opportunity_name": "={{$json.opportunity_name}}", "opportunity_type": "={{$json.opportunity_type}}",
+            "skill_level": "={{$json.skill_level}}", "expected_income": "={{$json.expected_income}}",
+            "time_required": "={{$json.time_required}}", "platforms": "={{$json.platforms}}", "resources": "={{$json.resources}}"
+          }
+        }
+      },
+      "id": "postgres-save-student",
+      "name": "Save Student Opportunities (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -900, 0 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_RESEARCH_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.75, "responseFormat": "json_object" },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a Viral Trend Analyst. Detect viral business trends, viral AI trends, trending startup ideas, trending digital products, and trending social media topics from the given topics. Return strict JSON: {\"trends\": [{\"trend_name\": string, \"trend_category\": \"business\"|\"ai\"|\"startup\"|\"digital_product\"|\"social_media\", \"virality_score\": number, \"growth_potential\": string, \"competition_score\": number, \"revenue_potential\": string, \"demand_score\": number, \"profitability_score\": number, \"difficulty_score\": number, \"seo_score\": number, \"automation_score\": number, \"longterm_score\": number}]}. All numeric score fields 0-100. Return at least 10 trends."
+            },
+            {
+              "role": "user",
+              "content": "=Trending topics:\\n{{ JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category, viral_score: t.viral_score}))) }}\\n\\nDetect viral trends now."
+            }
+          ]
+        }
+      },
+      "id": "openai-viral",
+      "name": "Detect Viral Trends (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -1340, 160 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.trends.map(t => ({ json: { run_id: runId, ...t } }));\n"
+      },
+      "id": "code-parse-viral",
+      "name": "Parse Viral Trends",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1120, 160 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "viral_trends" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "trend_name": "={{$json.trend_name}}", "trend_category": "={{$json.trend_category}}",
+            "virality_score": "={{$json.virality_score}}", "growth_potential": "={{$json.growth_potential}}",
+            "competition_score": "={{$json.competition_score}}", "revenue_potential": "={{$json.revenue_potential}}",
+            "demand_score": "={{$json.demand_score}}", "profitability_score": "={{$json.profitability_score}}",
+            "difficulty_score": "={{$json.difficulty_score}}", "seo_score": "={{$json.seo_score}}",
+            "automation_score": "={{$json.automation_score}}", "longterm_score": "={{$json.longterm_score}}"
+          }
+        }
+      },
+      "id": "postgres-save-viral",
+      "name": "Save Viral Trends (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -900, 160 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "id": "merge-done",
+      "name": "Merge Completion",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [ -660, 0 ]
+    },
+    {
+      "parameters": {
+        "workflowId": { "value": "04-daily-report-workflow", "mode": "list" },
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "execute-report-workflow",
+      "name": "Trigger Daily Report & Sync",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [ -440, 0 ]
+    }
+  ],
+  "connections": {
+    "When Called by Trend Research": { "main": [ [ { "node": "Get Top 15 Topics (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Get Top 15 Topics (Postgres)": { "main": [ [ { "node": "Aggregate Topics", "type": "main", "index": 0 } ] ] },
+    "Aggregate Topics": { "main": [ [
+      { "node": "Generate 10 AI Business Ideas (OpenAI)", "type": "main", "index": 0 },
+      { "node": "Generate Student Opportunities (OpenAI)", "type": "main", "index": 0 },
+      { "node": "Detect Viral Trends (OpenAI)", "type": "main", "index": 0 }
+    ] ] },
+    "Generate 10 AI Business Ideas (OpenAI)": { "main": [ [ { "node": "Parse & Validate 10 Ideas", "type": "main", "index": 0 } ] ] },
+    "Parse & Validate 10 Ideas": { "main": [ [ { "node": "Save AI Business Ideas (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Save AI Business Ideas (Postgres)": { "main": [ [ { "node": "Merge Completion", "type": "main", "index": 0 } ] ] },
+    "Generate Student Opportunities (OpenAI)": { "main": [ [ { "node": "Parse Student Opportunities", "type": "main", "index": 0 } ] ] },
+    "Parse Student Opportunities": { "main": [ [ { "node": "Save Student Opportunities (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Save Student Opportunities (Postgres)": { "main": [ [ { "node": "Merge Completion", "type": "main", "index": 1 } ] ] },
+    "Detect Viral Trends (OpenAI)": { "main": [ [ { "node": "Parse Viral Trends", "type": "main", "index": 0 } ] ] },
+    "Parse Viral Trends": { "main": [ [ { "node": "Save Viral Trends (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Save Viral Trends (Postgres)": { "main": [ [ { "node": "Merge Completion", "type": "main", "index": 2 } ] ] },
+    "Merge Completion": { "main": [ [ { "node": "Trigger Daily Report & Sync", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler-workflow-id"
+  },
+  "pinData": {},
+  "versionId": "1"
+}

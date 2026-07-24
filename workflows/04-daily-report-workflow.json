@@ -1,0 +1,638 @@
+{
+  "name": "AI Content Automation - 04 Daily Report & Multi-Destination Sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-trigger",
+      "name": "When Called by Business/Student/Viral",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [ -2600, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "trend_topics" },
+        "sort": { "values": [ { "column": "overall_score", "direction": "DESC" } ] }, "limit": 10, "options": {}
+      },
+      "id": "pg-top-opportunities",
+      "name": "Get Top 10 Opportunities",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, -640 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "digital_products" },
+        "sort": { "values": [ { "column": "profitability_score", "direction": "DESC" } ] }, "limit": 10, "options": {}
+      },
+      "id": "pg-top-products",
+      "name": "Get Top 10 Digital Products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, -540 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "freelancing_opportunities" },
+        "sort": { "values": [ { "column": "profitability_score", "direction": "DESC" } ] }, "limit": 10, "options": {}
+      },
+      "id": "pg-top-freelancing",
+      "name": "Get Top 10 Freelancing Niches",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, -440 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "trend_topics" },
+        "where": { "values": [ { "column": "category", "condition": "equal", "value": "AI Tools" } ] },
+        "sort": { "values": [ { "column": "overall_score", "direction": "DESC" } ] }, "limit": 10, "options": {}
+      },
+      "id": "pg-top-ai-tools",
+      "name": "Get Top AI Tools",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, -340 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "ai_business_ideas" },
+        "sort": { "values": [ { "column": "profitability_score", "direction": "DESC" } ] }, "limit": 10, "options": {}
+      },
+      "id": "pg-top-startup-ideas",
+      "name": "Get Top Startup Ideas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, -240 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "viral_trends" },
+        "sort": { "values": [ { "column": "virality_score", "direction": "DESC" } ] }, "limit": 10, "options": {}
+      },
+      "id": "pg-top-trending",
+      "name": "Get Top Trending Topics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, -140 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "trend_topics" },
+        "where": { "values": [ { "column": "category", "condition": "equal", "value": "Side Hustles" } ] },
+        "sort": { "values": [ { "column": "overall_score", "direction": "DESC" } ] }, "limit": 10, "options": {}
+      },
+      "id": "pg-side-hustles",
+      "name": "Get Best Side Hustles",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, -40 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "ai_business_ideas" },
+        "sort": { "values": [ { "column": "monthly_revenue_potential_usd", "direction": "DESC" } ] }, "limit": 1, "options": {}
+      },
+      "id": "pg-highest-revenue",
+      "name": "Get Highest Revenue Opportunity",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, 60 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "trend_topics" },
+        "sort": { "values": [ { "column": "competition_score", "direction": "ASC" } ] }, "limit": 1, "options": {}
+      },
+      "id": "pg-lowest-competition",
+      "name": "Get Lowest Competition Opportunity",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, 160 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "blog_posts" },
+        "sort": { "values": [ { "column": "id", "direction": "DESC" } ] }, "limit": 1, "options": {}
+      },
+      "id": "pg-latest-blog",
+      "name": "Get Latest Blog Post",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, 260 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "social_content" },
+        "sort": { "values": [ { "column": "id", "direction": "DESC" } ] }, "limit": 1, "options": {}
+      },
+      "id": "pg-latest-social",
+      "name": "Get Latest Social Content",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, 360 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "youtube_content" },
+        "sort": { "values": [ { "column": "id", "direction": "DESC" } ] }, "limit": 1, "options": {}
+      },
+      "id": "pg-latest-youtube",
+      "name": "Get Latest YouTube Content",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, 460 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "select", "schema": { "value": "public" }, "table": { "value": "newsletters" },
+        "sort": { "values": [ { "column": "id", "direction": "DESC" } ] }, "limit": 1, "options": {}
+      },
+      "id": "pg-latest-newsletter",
+      "name": "Get Latest Newsletter",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -2380, 560 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+    },
+    {
+      "parameters": { "mode": "append", "numberInputs": 13, "options": {} },
+      "id": "merge-report-data",
+      "name": "Merge All Report Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [ -2140, -40 ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Regroup the 13 merged branches back into named buckets using node-reference lookups,\n// since Merge(append) flattens everything into one list.\nconst pick = (name) => { try { return $(name).all().map(i => i.json); } catch (e) { return []; } };\nconst runId = (pick('Get Top 10 Opportunities')[0] || {}).run_id || 'unknown-run';\nconst bundle = {\n  run_id: runId,\n  report_date: new Date().toISOString().slice(0, 10),\n  top_opportunities: pick('Get Top 10 Opportunities'),\n  top_digital_products: pick('Get Top 10 Digital Products'),\n  top_freelancing_niches: pick('Get Top 10 Freelancing Niches'),\n  top_ai_tools: pick('Get Top AI Tools'),\n  top_startup_ideas: pick('Get Top Startup Ideas'),\n  top_trending_topics: pick('Get Top Trending Topics'),\n  best_side_hustles: pick('Get Best Side Hustles'),\n  highest_revenue_opportunity: pick('Get Highest Revenue Opportunity')[0] || {},\n  lowest_competition_opportunity: pick('Get Lowest Competition Opportunity')[0] || {},\n  latest_blog: pick('Get Latest Blog Post')[0] || {},\n  latest_social: pick('Get Latest Social Content')[0] || {},\n  latest_youtube: pick('Get Latest YouTube Content')[0] || {},\n  latest_newsletter: pick('Get Latest Newsletter')[0] || {}\n};\nreturn [{ json: bundle }];\n"
+      },
+      "id": "code-assemble-bundle",
+      "name": "Assemble Report Bundle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1920, -40 ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
+        "options": { "temperature": 0.5 },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a Digital Product Consultant writing the closing section of a daily opportunities report. Write a concise, prioritized, actionable 'Recommended Action Plan' (150-250 words) telling the reader exactly what to do today, this week, and this month, based on the highest demand + lowest competition + highest monetization opportunities provided. Plain text, no JSON."
+            },
+            {
+              "role": "user",
+              "content": "=Top opportunities: {{ JSON.stringify($json.top_opportunities.slice(0,5).map(o=>o.title)) }}\\nHighest revenue idea: {{ $json.highest_revenue_opportunity.idea_name }}\\nLowest competition opportunity: {{ $json.lowest_competition_opportunity.title }}"
+            }
+          ]
+        }
+      },
+      "id": "openai-action-plan",
+      "name": "Generate Recommended Action Plan (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.6,
+      "position": [ -1700, -40 ],
+      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const bundle = $('Assemble Report Bundle').first().json;\nconst plan = $input.first().json.message?.content || $input.first().json.content || $input.first().json.text;\nconst r = { ...bundle, recommended_action_plan: plan };\n\nconst list = (arr, fmt) => (arr || []).map((x, i) => `${i + 1}. ${fmt(x)}`).join('\\n');\nconst md = `# Daily AI Content & Opportunity Report — ${r.report_date}\\n\\n` +\n`## 1. Top 10 Opportunities\\n${list(r.top_opportunities, o => `**${o.title}** (${o.category}) — score ${o.overall_score}`)}\\n\\n` +\n`## 2. Top 10 Digital Products\\n${list(r.top_digital_products, p => `**${p.product_name}** — $${p.estimated_price_usd}, ${p.best_platform}`)}\\n\\n` +\n`## 3. Top 10 Freelancing Niches\\n${list(r.top_freelancing_niches, f => `**${f.skill_required}** — ${f.income_potential} on ${f.best_platform}`)}\\n\\n` +\n`## 4. Top AI Tools\\n${list(r.top_ai_tools, t => `**${t.title}**`)}\\n\\n` +\n`## 5. Top Startup Ideas\\n${list(r.top_startup_ideas, s => `**${s.idea_name}** — ${s.solution}`)}\\n\\n` +\n`## 6. Top Trending Topics\\n${list(r.top_trending_topics, t => `**${t.trend_name}** — virality ${t.virality_score}`)}\\n\\n` +\n`## 7. Best Side Hustles\\n${list(r.best_side_hustles, h => `**${h.title}**`)}\\n\\n` +\n`## 8. Highest Revenue Opportunity\\n**${r.highest_revenue_opportunity.idea_name || 'N/A'}** — up to $${r.highest_revenue_opportunity.monthly_revenue_potential_usd || 0}/mo\\n\\n` +\n`## 9. Lowest Competition Opportunity\\n**${r.lowest_competition_opportunity.title || 'N/A'}** — competition score ${r.lowest_competition_opportunity.competition_score || 'N/A'}\\n\\n` +\n`## 10. Recommended Action Plan\\n${r.recommended_action_plan}\\n`;\n\nreturn [{ json: { ...r, markdown_report: md } }];\n"
+      },
+      "id": "code-build-report",
+      "name": "Build Daily Report (Markdown + JSON)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1480, -40 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "daily_reports" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_id": "={{$json.run_id}}", "report_date": "={{$json.report_date}}",
+            "top_opportunities": "={{JSON.stringify($json.top_opportunities)}}",
+            "top_digital_products": "={{JSON.stringify($json.top_digital_products)}}",
+            "top_freelancing_niches": "={{JSON.stringify($json.top_freelancing_niches)}}",
+            "top_ai_tools": "={{JSON.stringify($json.top_ai_tools)}}",
+            "top_startup_ideas": "={{JSON.stringify($json.top_startup_ideas)}}",
+            "top_trending_topics": "={{JSON.stringify($json.top_trending_topics)}}",
+            "best_side_hustles": "={{JSON.stringify($json.best_side_hustles)}}",
+            "highest_revenue_opportunity": "={{JSON.stringify($json.highest_revenue_opportunity)}}",
+            "lowest_competition_opportunity": "={{JSON.stringify($json.lowest_competition_opportunity)}}",
+            "recommended_action_plan": "={{$json.recommended_action_plan}}",
+            "markdown_report": "={{$json.markdown_report}}"
+          }
+        }
+      },
+      "id": "postgres-save-report",
+      "name": "Save Daily Report (Postgres)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [ -1260, -40 ],
+      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst md = r.markdown_report;\nconst binaryMd = await this.helpers.prepareBinaryData(Buffer.from(md, 'utf8'), `${r.run_id}-daily-report.md`, 'text/markdown');\nconst binaryJson = await this.helpers.prepareBinaryData(Buffer.from(JSON.stringify(r, null, 2), 'utf8'), `${r.run_id}-daily-report.json`, 'application/json');\nreturn [{ json: r, binary: { markdown: binaryMd, json: binaryJson } }];\n"
+      },
+      "id": "code-build-report-files",
+      "name": "Build Report Files (MD + JSON)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ -1040, -40 ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{$env.OUTPUT_DIR || '/home/node/output'}}/reports/{{$json.run_id}}-daily-report.md",
+        "dataPropertyName": "markdown",
+        "options": {}
+      },
+      "id": "write-report-markdown",
+      "name": "Write Daily Report Markdown",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [ -820, -160 ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{$env.OUTPUT_DIR || '/home/node/output'}}/json/{{$json.run_id}}-daily-report.json",
+        "dataPropertyName": "json",
+        "options": {}
+      },
+      "id": "write-report-json",
+      "name": "Write Daily Report JSON",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [ -820, 80 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "TrendTopics" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-trends",
+      "name": "Sync to Google Sheets: Trends",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, -600 ],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "DigitalProducts" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-products",
+      "name": "Sync to Google Sheets: Digital Products",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, -500 ],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "Freelancing" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-freelancing",
+      "name": "Sync to Google Sheets: Freelancing",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, -400 ],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "AIBusinessIdeas" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-business-ideas",
+      "name": "Sync to Google Sheets: AI Business Ideas",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, -300 ],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "Blogs" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-blogs",
+      "name": "Sync to Google Sheets: Blogs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, -200 ],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "SocialMediaPosts" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-social",
+      "name": "Sync to Google Sheets: Social Media Posts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, -100 ],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "Newsletters" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-newsletters",
+      "name": "Sync to Google Sheets: Newsletters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, 0 ]
+      ,
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "value": "={{$env.GOOGLE_SHEETS_SPREADSHEET_ID}}" },
+        "sheetName": { "value": "DailyReports" },
+        "columns": { "mappingMode": "autoMapInputData" },
+        "options": {}
+      },
+      "id": "sheets-reports",
+      "name": "Sync to Google Sheets: Daily Reports",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [ -600, 100 ],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "gsheets-creds", "name": "Google Sheets account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "value": "={{$env.AIRTABLE_BASE_ID}}" },
+        "table": { "value": "TrendTopics" },
+        "columns": { "mappingMode": "autoMapInputData" }
+      },
+      "id": "airtable-trends",
+      "name": "Sync to Airtable: Trends",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [ -600, 220 ],
+      "credentials": { "airtableTokenApi": { "id": "airtable-creds", "name": "Airtable account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "value": "={{$env.AIRTABLE_BASE_ID}}" },
+        "table": { "value": "DigitalProducts" },
+        "columns": { "mappingMode": "autoMapInputData" }
+      },
+      "id": "airtable-products",
+      "name": "Sync to Airtable: Digital Products",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [ -600, 320 ],
+      "credentials": { "airtableTokenApi": { "id": "airtable-creds", "name": "Airtable account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "value": "={{$env.AIRTABLE_BASE_ID}}" },
+        "table": { "value": "Freelancing" },
+        "columns": { "mappingMode": "autoMapInputData" }
+      },
+      "id": "airtable-freelancing",
+      "name": "Sync to Airtable: Freelancing",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [ -600, 420 ],
+      "credentials": { "airtableTokenApi": { "id": "airtable-creds", "name": "Airtable account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "value": "={{$env.AIRTABLE_BASE_ID}}" },
+        "table": { "value": "AIBusinessIdeas" },
+        "columns": { "mappingMode": "autoMapInputData" }
+      },
+      "id": "airtable-business-ideas",
+      "name": "Sync to Airtable: AI Business Ideas",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [ -600, 520 ],
+      "credentials": { "airtableTokenApi": { "id": "airtable-creds", "name": "Airtable account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "value": "={{$env.AIRTABLE_BASE_ID}}" },
+        "table": { "value": "DailyReports" },
+        "columns": { "mappingMode": "autoMapInputData" }
+      },
+      "id": "airtable-reports",
+      "name": "Sync to Airtable: Daily Reports",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [ -600, 620 ],
+      "credentials": { "airtableTokenApi": { "id": "airtable-creds", "name": "Airtable account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": { "value": "={{$env.NOTION_DATABASE_ID_TRENDS}}" },
+        "title": "=Trend Report {{$json.run_id}}",
+        "propertiesUi": { "propertyValues": [] }
+      },
+      "id": "notion-trends",
+      "name": "Sync to Notion: Trends DB",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [ -600, 740 ],
+      "credentials": { "notionApi": { "id": "notion-creds", "name": "Notion account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": { "value": "={{$env.NOTION_DATABASE_ID_PRODUCTS}}" },
+        "title": "=Digital Products {{$json.run_id}}",
+        "propertiesUi": { "propertyValues": [] }
+      },
+      "id": "notion-products",
+      "name": "Sync to Notion: Products DB",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [ -600, 840 ],
+      "credentials": { "notionApi": { "id": "notion-creds", "name": "Notion account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": { "value": "={{$env.NOTION_DATABASE_ID_CONTENT}}" },
+        "title": "={{$json.latest_blog.title}}",
+        "propertiesUi": { "propertyValues": [] }
+      },
+      "id": "notion-content",
+      "name": "Sync to Notion: Content DB",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [ -600, 940 ],
+      "credentials": { "notionApi": { "id": "notion-creds", "name": "Notion account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": { "value": "={{$env.NOTION_DATABASE_ID_REPORTS}}" },
+        "title": "=Daily Report {{$json.report_date}}",
+        "propertiesUi": { "propertyValues": [] }
+      },
+      "id": "notion-reports",
+      "name": "Sync to Notion: Reports DB",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [ -600, 1040 ],
+      "credentials": { "notionApi": { "id": "notion-creds", "name": "Notion account" } },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "📊 Daily AI Content Automation Report — {{$json.report_date}}\nTop opportunity: {{$json.top_opportunities[0].title}}\nHighest revenue idea: {{$json.highest_revenue_opportunity.idea_name}} (${{$json.highest_revenue_opportunity.monthly_revenue_potential_usd}}/mo)\nFull report saved to Postgres, Sheets, Airtable, Notion, and /output files."
+      },
+      "id": "discord-report-notify",
+      "name": "Notify Report Ready (Discord)",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [ -380, -40 ],
+      "credentials": { "discordWebhookApi": { "id": "discord-creds", "name": "Discord Webhook" } }
+    }
+  ],
+  "connections": {
+    "When Called by Business/Student/Viral": { "main": [ [
+      { "node": "Get Top 10 Opportunities", "type": "main", "index": 0 },
+      { "node": "Get Top 10 Digital Products", "type": "main", "index": 0 },
+      { "node": "Get Top 10 Freelancing Niches", "type": "main", "index": 0 },
+      { "node": "Get Top AI Tools", "type": "main", "index": 0 },
+      { "node": "Get Top Startup Ideas", "type": "main", "index": 0 },
+      { "node": "Get Top Trending Topics", "type": "main", "index": 0 },
+      { "node": "Get Best Side Hustles", "type": "main", "index": 0 },
+      { "node": "Get Highest Revenue Opportunity", "type": "main", "index": 0 },
+      { "node": "Get Lowest Competition Opportunity", "type": "main", "index": 0 },
+      { "node": "Get Latest Blog Post", "type": "main", "index": 0 },
+      { "node": "Get Latest Social Content", "type": "main", "index": 0 },
+      { "node": "Get Latest YouTube Content", "type": "main", "index": 0 },
+      { "node": "Get Latest Newsletter", "type": "main", "index": 0 }
+    ] ] },
+    "Get Top 10 Opportunities": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 0 } ] ] },
+    "Get Top 10 Digital Products": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 1 } ] ] },
+    "Get Top 10 Freelancing Niches": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 2 } ] ] },
+    "Get Top AI Tools": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 3 } ] ] },
+    "Get Top Startup Ideas": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 4 } ] ] },
+    "Get Top Trending Topics": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 5 } ] ] },
+    "Get Best Side Hustles": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 6 } ] ] },
+    "Get Highest Revenue Opportunity": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 7 } ] ] },
+    "Get Lowest Competition Opportunity": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 8 } ] ] },
+    "Get Latest Blog Post": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 9 } ] ] },
+    "Get Latest Social Content": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 10 } ] ] },
+    "Get Latest YouTube Content": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 11 } ] ] },
+    "Get Latest Newsletter": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 12 } ] ] },
+    "Merge All Report Data": { "main": [ [ { "node": "Assemble Report Bundle", "type": "main", "index": 0 } ] ] },
+    "Assemble Report Bundle": { "main": [ [ { "node": "Generate Recommended Action Plan (OpenAI)", "type": "main", "index": 0 } ] ] },
+    "Generate Recommended Action Plan (OpenAI)": { "main": [ [ { "node": "Build Daily Report (Markdown + JSON)", "type": "main", "index": 0 } ] ] },
+    "Build Daily Report (Markdown + JSON)": { "main": [ [ { "node": "Save Daily Report (Postgres)", "type": "main", "index": 0 } ] ] },
+    "Save Daily Report (Postgres)": { "main": [ [ { "node": "Build Report Files (MD + JSON)", "type": "main", "index": 0 } ] ] },
+    "Build Report Files (MD + JSON)": { "main": [ [
+      { "node": "Write Daily Report Markdown", "type": "main", "index": 0 },
+      { "node": "Write Daily Report JSON", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Trends", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Digital Products", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Freelancing", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: AI Business Ideas", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Blogs", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Social Media Posts", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Newsletters", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Daily Reports", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: Trends", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: Digital Products", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: Freelancing", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: AI Business Ideas", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: Daily Reports", "type": "main", "index": 0 },
+      { "node": "Sync to Notion: Trends DB", "type": "main", "index": 0 },
+      { "node": "Sync to Notion: Products DB", "type": "main", "index": 0 },
+      { "node": "Sync to Notion: Content DB", "type": "main", "index": 0 },
+      { "node": "Sync to Notion: Reports DB", "type": "main", "index": 0 },
+      { "node": "Notify Report Ready (Discord)", "type": "main", "index": 0 }
+    ] ] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler-workflow-id"
+  },
+  "pinData": {},
+  "versionId": "1"
+}

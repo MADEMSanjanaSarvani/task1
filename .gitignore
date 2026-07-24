@@ -1,0 +1,4 @@
+docker/.env
+.env
+*.log
+node_modules/
