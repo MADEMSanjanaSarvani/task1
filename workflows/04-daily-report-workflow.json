@@ -516,7 +516,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -528,13 +528,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.5 }, messages: [ { role: 'system', content: \"You are a Digital Product Consultant writing the closing section of a daily opportunities report. Write a concise, prioritized, actionable 'Recommended Action Plan' (150-250 words) telling the reader exactly what to do today, this week, and this month, based on the highest demand + lowest competition + highest monetization opportunities provided. Plain text, no JSON.\" }, { role: 'user', content: `Top opportunities: ${JSON.stringify($json.top_opportunities.slice(0,5).map(o=>o.title))}\\nHighest revenue idea: ${$json.highest_revenue_opportunity.idea_name}\\nLowest competition opportunity: ${$json.lowest_competition_opportunity.title}` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are a Digital Product Consultant writing the closing section of a daily opportunities report. Write a concise, prioritized, actionable 'Recommended Action Plan' (150-250 words) telling the reader exactly what to do today, this week, and this month, based on the highest demand + lowest competition + highest monetization opportunities provided. Plain text, no JSON.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Top opportunities: ${JSON.stringify($json.top_opportunities.slice(0,5).map(o=>o.title))}\\nHighest revenue idea: ${$json.highest_revenue_opportunity.idea_name}\\nLowest competition opportunity: ${$json.lowest_competition_opportunity.title}` } ] } ], generationConfig: { temperature: 0.5, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-action-plan",
-      "name": "Generate Recommended Action Plan (Ollama)",
+      "name": "Generate Recommended Action Plan (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -547,7 +547,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const bundle = $('Assemble Report Bundle').first().json;\nconst plan = $input.first().json.message?.content || $input.first().json.content || $input.first().json.text;\nconst r = { ...bundle, recommended_action_plan: plan };\n\nconst list = (arr, fmt) => (arr || []).map((x, i) => `${i + 1}. ${fmt(x)}`).join('\\n');\nconst md = `# Daily AI Content & Opportunity Report \u2014 ${r.report_date}\\n\\n` +\n`## 1. Top 10 Opportunities\\n${list(r.top_opportunities, o => `**${o.title}** (${o.category}) \u2014 score ${o.overall_score}`)}\\n\\n` +\n`## 2. Top 10 Digital Products\\n${list(r.top_digital_products, p => `**${p.product_name}** \u2014 $${p.estimated_price_usd}, ${p.best_platform}`)}\\n\\n` +\n`## 3. Top 10 Freelancing Niches\\n${list(r.top_freelancing_niches, f => `**${f.skill_required}** \u2014 ${f.income_potential} on ${f.best_platform}`)}\\n\\n` +\n`## 4. Top AI Tools\\n${list(r.top_ai_tools, t => `**${t.title}**`)}\\n\\n` +\n`## 5. Top Startup Ideas\\n${list(r.top_startup_ideas, s => `**${s.idea_name}** \u2014 ${s.solution}`)}\\n\\n` +\n`## 6. Top Trending Topics\\n${list(r.top_trending_topics, t => `**${t.trend_name}** \u2014 virality ${t.virality_score}`)}\\n\\n` +\n`## 7. Best Side Hustles\\n${list(r.best_side_hustles, h => `**${h.title}**`)}\\n\\n` +\n`## 8. Highest Revenue Opportunity\\n**${r.highest_revenue_opportunity.idea_name || 'N/A'}** \u2014 up to $${r.highest_revenue_opportunity.monthly_revenue_potential_usd || 0}/mo\\n\\n` +\n`## 9. Lowest Competition Opportunity\\n**${r.lowest_competition_opportunity.title || 'N/A'}** \u2014 competition score ${r.lowest_competition_opportunity.competition_score || 'N/A'}\\n\\n` +\n`## 10. Recommended Action Plan\\n${r.recommended_action_plan}\\n`;\n\nreturn [{ json: { ...r, markdown_report: md } }];\n"
+        "jsCode": "const bundle = $('Assemble Report Bundle').first().json;\nconst plan = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content || $input.first().json.text;\nconst r = { ...bundle, recommended_action_plan: plan };\n\nconst list = (arr, fmt) => (arr || []).map((x, i) => `${i + 1}. ${fmt(x)}`).join('\\n');\nconst md = `# Daily AI Content & Opportunity Report \u2014 ${r.report_date}\\n\\n` +\n`## 1. Top 10 Opportunities\\n${list(r.top_opportunities, o => `**${o.title}** (${o.category}) \u2014 score ${o.overall_score}`)}\\n\\n` +\n`## 2. Top 10 Digital Products\\n${list(r.top_digital_products, p => `**${p.product_name}** \u2014 $${p.estimated_price_usd}, ${p.best_platform}`)}\\n\\n` +\n`## 3. Top 10 Freelancing Niches\\n${list(r.top_freelancing_niches, f => `**${f.skill_required}** \u2014 ${f.income_potential} on ${f.best_platform}`)}\\n\\n` +\n`## 4. Top AI Tools\\n${list(r.top_ai_tools, t => `**${t.title}**`)}\\n\\n` +\n`## 5. Top Startup Ideas\\n${list(r.top_startup_ideas, s => `**${s.idea_name}** \u2014 ${s.solution}`)}\\n\\n` +\n`## 6. Top Trending Topics\\n${list(r.top_trending_topics, t => `**${t.trend_name}** \u2014 virality ${t.virality_score}`)}\\n\\n` +\n`## 7. Best Side Hustles\\n${list(r.best_side_hustles, h => `**${h.title}**`)}\\n\\n` +\n`## 8. Highest Revenue Opportunity\\n**${r.highest_revenue_opportunity.idea_name || 'N/A'}** \u2014 up to $${r.highest_revenue_opportunity.monthly_revenue_potential_usd || 0}/mo\\n\\n` +\n`## 9. Lowest Competition Opportunity\\n**${r.lowest_competition_opportunity.title || 'N/A'}** \u2014 competition score ${r.lowest_competition_opportunity.competition_score || 'N/A'}\\n\\n` +\n`## 10. Recommended Action Plan\\n${r.recommended_action_plan}\\n`;\n\nreturn [{ json: { ...r, markdown_report: md } }];\n"
       },
       "id": "code-build-report",
       "name": "Build Daily Report (Markdown + JSON)",
@@ -1460,14 +1460,14 @@
       "main": [
         [
           {
-            "node": "Generate Recommended Action Plan (Ollama)",
+            "node": "Generate Recommended Action Plan (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate Recommended Action Plan (Ollama)": {
+    "Generate Recommended Action Plan (Gemini)": {
       "main": [
         [
           {

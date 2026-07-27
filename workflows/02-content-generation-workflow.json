@@ -59,7 +59,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -71,13 +71,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.7 }, messages: [ { role: 'system', content: \"You are an expert SEO Content Researcher and Blog Writer. Write a factually accurate, SEO-optimized blog article of at least 1500 words about the given trending opportunity. Return strict JSON: {\\\"title\\\": string, \\\"meta_description\\\": string, \\\"seo_keywords\\\": [string], \\\"introduction\\\": string, \\\"main_content\\\": string (markdown with H2/H3 headers, at least 1200 words), \\\"conclusion\\\": string, \\\"faqs\\\": [{\\\"question\\\": string, \\\"answer\\\": string}] (at least 5)}. Avoid duplicate or outdated information, include actionable recommendations, and prioritize high-value monetizable opportunities.\" }, { role: 'user', content: `Write the blog article for this trending opportunity:\\nTitle: ${$json.title}\\nCategory: ${$json.category}\\nScores: demand ${$json.demand_score}, profitability ${$json.profitability_score}, competition ${$json.competition_score}, SEO ${$json.seo_score}` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are an expert SEO Content Researcher and Blog Writer. Write a factually accurate, SEO-optimized blog article of at least 1500 words about the given trending opportunity. Return strict JSON: {\\\"title\\\": string, \\\"meta_description\\\": string, \\\"seo_keywords\\\": [string], \\\"introduction\\\": string, \\\"main_content\\\": string (markdown with H2/H3 headers, at least 1200 words), \\\"conclusion\\\": string, \\\"faqs\\\": [{\\\"question\\\": string, \\\"answer\\\": string}] (at least 5)}. Avoid duplicate or outdated information, include actionable recommendations, and prioritize high-value monetizable opportunities.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Write the blog article for this trending opportunity:\\nTitle: ${$json.title}\\nCategory: ${$json.category}\\nScores: demand ${$json.demand_score}, profitability ${$json.profitability_score}, competition ${$json.competition_score}, SEO ${$json.seo_score}` } ] } ], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-blog",
-      "name": "Generate SEO Blog Article (Ollama)",
+      "name": "Generate SEO Blog Article (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -90,7 +90,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const topic = $('Get Top Topic (Postgres)').first().json;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst blog = JSON.parse(raw);\nconst wordCount = (blog.main_content || '').split(/\\s+/).filter(Boolean).length + (blog.introduction || '').split(/\\s+/).filter(Boolean).length + (blog.conclusion || '').split(/\\s+/).filter(Boolean).length;\nreturn [{ json: { run_id: topic.run_id, topic_id: topic.id, topic_title: topic.title, word_count: wordCount, ...blog } }];\n"
+        "jsCode": "const topic = $('Get Top Topic (Postgres)').first().json;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst blog = JSON.parse(raw);\nconst wordCount = (blog.main_content || '').split(/\\s+/).filter(Boolean).length + (blog.introduction || '').split(/\\s+/).filter(Boolean).length + (blog.conclusion || '').split(/\\s+/).filter(Boolean).length;\nreturn [{ json: { run_id: topic.run_id, topic_id: topic.id, topic_title: topic.title, word_count: wordCount, ...blog } }];\n"
       },
       "id": "code-parse-blog",
       "name": "Parse & Validate Blog (>=1500 words)",
@@ -180,7 +180,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -192,13 +192,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.75 }, messages: [ { role: 'system', content: \"You are a social media copywriter. Repurpose the given blog article into short-form content. Return strict JSON: {\\\"twitter_thread\\\": string (5-8 numbered tweets), \\\"linkedin_post\\\": string, \\\"instagram_caption\\\": string (with emojis and hashtags), \\\"facebook_post\\\": string, \\\"telegram_post\\\": string, \\\"whatsapp_broadcast\\\": string (short, high-urgency)}.\" }, { role: 'user', content: `Blog title: ${$('Parse & Validate Blog (>=1500 words)').item.json.title}\\nIntroduction: ${$('Parse & Validate Blog (>=1500 words)').item.json.introduction}\\nKey keywords: ${$('Parse & Validate Blog (>=1500 words)').item.json.seo_keywords.join(', ')}` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are a social media copywriter. Repurpose the given blog article into short-form content. Return strict JSON: {\\\"twitter_thread\\\": string (5-8 numbered tweets), \\\"linkedin_post\\\": string, \\\"instagram_caption\\\": string (with emojis and hashtags), \\\"facebook_post\\\": string, \\\"telegram_post\\\": string, \\\"whatsapp_broadcast\\\": string (short, high-urgency)}.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Blog title: ${$('Parse & Validate Blog (>=1500 words)').item.json.title}\\nIntroduction: ${$('Parse & Validate Blog (>=1500 words)').item.json.introduction}\\nKey keywords: ${$('Parse & Validate Blog (>=1500 words)').item.json.seo_keywords.join(', ')}` } ] } ], generationConfig: { temperature: 0.75, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-social",
-      "name": "Generate Short Content (Ollama)",
+      "name": "Generate Short Content (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -211,7 +211,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const blog = $('Parse & Validate Blog (>=1500 words)').first().json;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst social = JSON.parse(raw);\nreturn [{ json: { run_id: blog.run_id, blog_post_id: blog.id, ...social } }];\n"
+        "jsCode": "const blog = $('Parse & Validate Blog (>=1500 words)').first().json;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst social = JSON.parse(raw);\nreturn [{ json: { run_id: blog.run_id, blog_post_id: blog.id, ...social } }];\n"
       },
       "id": "code-parse-social",
       "name": "Parse Short Content",
@@ -265,7 +265,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -277,13 +277,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.75 }, messages: [ { role: 'system', content: \"You are a YouTube content strategist. Turn the blog article into a YouTube video package. Return strict JSON: {\\\"video_title\\\": string (under 100 chars, hook-driven), \\\"thumbnail_idea\\\": string, \\\"script\\\": string (full spoken script, 3-6 minutes), \\\"description\\\": string, \\\"tags\\\": [string], \\\"hashtags\\\": [string]}.\" }, { role: 'user', content: `Blog title: ${$('Parse & Validate Blog (>=1500 words)').item.json.title}\\nMain content summary: ${$('Parse & Validate Blog (>=1500 words)').item.json.introduction}` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are a YouTube content strategist. Turn the blog article into a YouTube video package. Return strict JSON: {\\\"video_title\\\": string (under 100 chars, hook-driven), \\\"thumbnail_idea\\\": string, \\\"script\\\": string (full spoken script, 3-6 minutes), \\\"description\\\": string, \\\"tags\\\": [string], \\\"hashtags\\\": [string]}.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Blog title: ${$('Parse & Validate Blog (>=1500 words)').item.json.title}\\nMain content summary: ${$('Parse & Validate Blog (>=1500 words)').item.json.introduction}` } ] } ], generationConfig: { temperature: 0.75, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-youtube",
-      "name": "Generate YouTube Content (Ollama)",
+      "name": "Generate YouTube Content (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -296,7 +296,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const blog = $('Parse & Validate Blog (>=1500 words)').first().json;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst yt = JSON.parse(raw);\nreturn [{ json: { run_id: blog.run_id, blog_post_id: blog.id, ...yt } }];\n"
+        "jsCode": "const blog = $('Parse & Validate Blog (>=1500 words)').first().json;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst yt = JSON.parse(raw);\nreturn [{ json: { run_id: blog.run_id, blog_post_id: blog.id, ...yt } }];\n"
       },
       "id": "code-parse-youtube",
       "name": "Parse YouTube Content",
@@ -350,7 +350,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -362,13 +362,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"You are a newsletter editor for a daily opportunities newsletter. Return strict JSON: {\\\"weekly_trends\\\": string, \\\"market_insights\\\": string, \\\"opportunities\\\": string, \\\"actionable_tips\\\": string, \\\"recommended_tools\\\": string, \\\"business_ideas\\\": string}. Keep each section concise (100-200 words), punchy, and actionable.\" }, { role: 'user', content: `Base the newsletter on this run's top opportunity: ${$('Parse & Validate Blog (>=1500 words)').item.json.title} (category: ${$('Get Top Topic (Postgres)').item.json.category}).` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are a newsletter editor for a daily opportunities newsletter. Return strict JSON: {\\\"weekly_trends\\\": string, \\\"market_insights\\\": string, \\\"opportunities\\\": string, \\\"actionable_tips\\\": string, \\\"recommended_tools\\\": string, \\\"business_ideas\\\": string}. Keep each section concise (100-200 words), punchy, and actionable.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Base the newsletter on this run's top opportunity: ${$('Parse & Validate Blog (>=1500 words)').item.json.title} (category: ${$('Get Top Topic (Postgres)').item.json.category}).` } ] } ], generationConfig: { temperature: 0.6, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-newsletter",
-      "name": "Generate Newsletter (Ollama)",
+      "name": "Generate Newsletter (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -381,7 +381,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const runId = $('Parse & Validate Blog (>=1500 words)').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst nl = JSON.parse(raw);\nreturn [{ json: { run_id: runId, ...nl } }];\n"
+        "jsCode": "const runId = $('Parse & Validate Blog (>=1500 words)').first().json.run_id;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst nl = JSON.parse(raw);\nreturn [{ json: { run_id: runId, ...nl } }];\n"
       },
       "id": "code-parse-newsletter",
       "name": "Parse Newsletter",
@@ -459,14 +459,14 @@
       "main": [
         [
           {
-            "node": "Generate SEO Blog Article (Ollama)",
+            "node": "Generate SEO Blog Article (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate SEO Blog Article (Ollama)": {
+    "Generate SEO Blog Article (Gemini)": {
       "main": [
         [
           {
@@ -497,7 +497,7 @@
             "index": 0
           },
           {
-            "node": "Generate Short Content (Ollama)",
+            "node": "Generate Short Content (Gemini)",
             "type": "main",
             "index": 0
           }
@@ -515,7 +515,7 @@
         ]
       ]
     },
-    "Generate Short Content (Ollama)": {
+    "Generate Short Content (Gemini)": {
       "main": [
         [
           {
@@ -535,14 +535,14 @@
             "index": 0
           },
           {
-            "node": "Generate YouTube Content (Ollama)",
+            "node": "Generate YouTube Content (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate YouTube Content (Ollama)": {
+    "Generate YouTube Content (Gemini)": {
       "main": [
         [
           {
@@ -568,14 +568,14 @@
       "main": [
         [
           {
-            "node": "Generate Newsletter (Ollama)",
+            "node": "Generate Newsletter (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate Newsletter (Ollama)": {
+    "Generate Newsletter (Gemini)": {
       "main": [
         [
           {

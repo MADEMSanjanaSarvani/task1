@@ -387,7 +387,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -399,13 +399,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"You are an expert Digital Product Consultant. Given a list of currently trending topics, research and propose at least 10 trending digital products spanning categories like Notion Templates, Canva Templates, Resume Templates, AI Prompt Packs, eBooks, Study Materials, AI Agents, SaaS Ideas, Chrome Extensions, Mobile Apps, Productivity Tools, Student Tools, Online Courses, Templates, Web Components, UI Kits, Design Systems, PDF Guides. Return strict JSON: {\\\"products\\\": [{\\\"product_name\\\": string, \\\"product_type\\\": string, \\\"description\\\": string, \\\"target_audience\\\": string, \\\"difficulty_level\\\": \\\"beginner\\\"|\\\"intermediate\\\"|\\\"advanced\\\", \\\"estimated_price_usd\\\": number, \\\"market_demand\\\": string, \\\"competition_level\\\": string, \\\"monthly_income_low_usd\\\": number, \\\"monthly_income_high_usd\\\": number, \\\"best_platform\\\": string, \\\"marketing_strategy\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"difficulty_score\\\": number, \\\"competition_score\\\": number}]}. All *_score fields are 0-100. Be factual, avoid duplicate or outdated ideas, prioritize high demand + low competition + high monetization.\" }, { role: 'user', content: `Trending topics for ${$json.run_id}:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category, overall_score: t.overall_score})))}\\n\\nPropose the digital products now.` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are an expert Digital Product Consultant. Given a list of currently trending topics, research and propose at least 10 trending digital products spanning categories like Notion Templates, Canva Templates, Resume Templates, AI Prompt Packs, eBooks, Study Materials, AI Agents, SaaS Ideas, Chrome Extensions, Mobile Apps, Productivity Tools, Student Tools, Online Courses, Templates, Web Components, UI Kits, Design Systems, PDF Guides. Return strict JSON: {\\\"products\\\": [{\\\"product_name\\\": string, \\\"product_type\\\": string, \\\"description\\\": string, \\\"target_audience\\\": string, \\\"difficulty_level\\\": \\\"beginner\\\"|\\\"intermediate\\\"|\\\"advanced\\\", \\\"estimated_price_usd\\\": number, \\\"market_demand\\\": string, \\\"competition_level\\\": string, \\\"monthly_income_low_usd\\\": number, \\\"monthly_income_high_usd\\\": number, \\\"best_platform\\\": string, \\\"marketing_strategy\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"difficulty_score\\\": number, \\\"competition_score\\\": number}]}. All *_score fields are 0-100. Be factual, avoid duplicate or outdated ideas, prioritize high demand + low competition + high monetization.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Trending topics for ${$json.run_id}:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category, overall_score: t.overall_score})))}\\n\\nPropose the digital products now.` } ] } ], generationConfig: { temperature: 0.6, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-digital-products",
-      "name": "Digital Product Research (Ollama)",
+      "name": "Digital Product Research (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -418,7 +418,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const runId = $('Select Top Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.products.map(p => ({ json: { run_id: runId, ...p } }));\n"
+        "jsCode": "const runId = $('Select Top Topics').first().json.run_id;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.products.map(p => ({ json: { run_id: runId, ...p } }));\n"
       },
       "id": "code-parse-products",
       "name": "Parse Digital Products",
@@ -482,7 +482,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -494,13 +494,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"You are an expert Freelancing Mentor. Given trending topics, propose at least 10 freelancing opportunities covering high-paying niches, low-competition niches, trending skills, beginner-friendly services, and AI-powered services on platforms like Upwork, Fiverr, Freelancer, Toptal, Contra, PeoplePerHour, LinkedIn, Guru, and remote job boards. Return strict JSON: {\\\"opportunities\\\": [{\\\"skill_required\\\": string, \\\"niche_type\\\": \\\"high_paying\\\"|\\\"low_competition\\\"|\\\"trending\\\"|\\\"beginner_friendly\\\"|\\\"ai_powered\\\", \\\"income_potential\\\": string, \\\"best_platform\\\": string, \\\"demand_level\\\": string, \\\"learning_resources\\\": string, \\\"portfolio_ideas\\\": string, \\\"how_to_get_clients\\\": string, \\\"average_pricing\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"competition_score\\\": number}]}. All *_score fields 0-100.\" }, { role: 'user', content: `Trending topics for ${$('Select Top Topics').item.json.run_id}:\\n${JSON.stringify($('Select Top Topics').item.json.topics.map(t => ({title: t.title, category: t.category})))}\\n\\nPropose the freelancing opportunities now.` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are an expert Freelancing Mentor. Given trending topics, propose at least 10 freelancing opportunities covering high-paying niches, low-competition niches, trending skills, beginner-friendly services, and AI-powered services on platforms like Upwork, Fiverr, Freelancer, Toptal, Contra, PeoplePerHour, LinkedIn, Guru, and remote job boards. Return strict JSON: {\\\"opportunities\\\": [{\\\"skill_required\\\": string, \\\"niche_type\\\": \\\"high_paying\\\"|\\\"low_competition\\\"|\\\"trending\\\"|\\\"beginner_friendly\\\"|\\\"ai_powered\\\", \\\"income_potential\\\": string, \\\"best_platform\\\": string, \\\"demand_level\\\": string, \\\"learning_resources\\\": string, \\\"portfolio_ideas\\\": string, \\\"how_to_get_clients\\\": string, \\\"average_pricing\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"competition_score\\\": number}]}. All *_score fields 0-100.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Trending topics for ${$('Select Top Topics').item.json.run_id}:\\n${JSON.stringify($('Select Top Topics').item.json.topics.map(t => ({title: t.title, category: t.category})))}\\n\\nPropose the freelancing opportunities now.` } ] } ], generationConfig: { temperature: 0.6, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-freelancing",
-      "name": "Freelancing Research (Ollama)",
+      "name": "Freelancing Research (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -513,7 +513,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const runId = $('Select Top Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.opportunities.map(o => ({ json: { run_id: runId, ...o } }));\n"
+        "jsCode": "const runId = $('Select Top Topics').first().json.run_id;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.opportunities.map(o => ({ json: { run_id: runId, ...o } }));\n"
       },
       "id": "code-parse-freelancing",
       "name": "Parse Freelancing Opportunities",
@@ -760,19 +760,19 @@
       "main": [
         [
           {
-            "node": "Digital Product Research (Ollama)",
+            "node": "Digital Product Research (Gemini)",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Freelancing Research (Ollama)",
+            "node": "Freelancing Research (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Digital Product Research (Ollama)": {
+    "Digital Product Research (Gemini)": {
       "main": [
         [
           {
@@ -805,7 +805,7 @@
         ]
       ]
     },
-    "Freelancing Research (Ollama)": {
+    "Freelancing Research (Gemini)": {
       "main": [
         [
           {

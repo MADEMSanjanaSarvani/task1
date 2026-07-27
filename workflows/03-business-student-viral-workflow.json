@@ -72,7 +72,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -84,13 +84,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.8 }, messages: [ { role: 'system', content: \"You are an AI Business Idea Consultant. Generate exactly 10 new AI business ideas based on the given trending topics. Return strict JSON: {\\\"ideas\\\": [{\\\"idea_name\\\": string, \\\"problem\\\": string, \\\"solution\\\": string, \\\"target_users\\\": string, \\\"revenue_model\\\": string, \\\"estimated_dev_cost_usd\\\": number, \\\"market_size\\\": string, \\\"monthly_revenue_potential_usd\\\": number, \\\"mvp_features\\\": [string], \\\"ai_features\\\": [string], \\\"monetization_strategy\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"difficulty_score\\\": number, \\\"automation_score\\\": number}]}. All *_score fields 0-100. Prioritize high demand, low competition, high monetization, global market, beginner-friendly execution, and AI automation possibilities.\" }, { role: 'user', content: `Trending topics:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category})))}\\n\\nGenerate 10 fresh, unique AI business ideas now.` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are an AI Business Idea Consultant. Generate exactly 10 new AI business ideas based on the given trending topics. Return strict JSON: {\\\"ideas\\\": [{\\\"idea_name\\\": string, \\\"problem\\\": string, \\\"solution\\\": string, \\\"target_users\\\": string, \\\"revenue_model\\\": string, \\\"estimated_dev_cost_usd\\\": number, \\\"market_size\\\": string, \\\"monthly_revenue_potential_usd\\\": number, \\\"mvp_features\\\": [string], \\\"ai_features\\\": [string], \\\"monetization_strategy\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"difficulty_score\\\": number, \\\"automation_score\\\": number}]}. All *_score fields 0-100. Prioritize high demand, low competition, high monetization, global market, beginner-friendly execution, and AI automation possibilities.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Trending topics:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category})))}\\n\\nGenerate 10 fresh, unique AI business ideas now.` } ] } ], generationConfig: { temperature: 0.8, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-business-ideas",
-      "name": "Generate 10 AI Business Ideas (Ollama)",
+      "name": "Generate 10 AI Business Ideas (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -103,7 +103,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nif (!parsed.ideas || parsed.ideas.length < 10) throw new Error('Expected 10 AI business ideas, got ' + (parsed.ideas || []).length);\nreturn parsed.ideas.map(idea => ({ json: { run_id: runId, ...idea } }));\n"
+        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nif (!parsed.ideas || parsed.ideas.length < 10) throw new Error('Expected 10 AI business ideas, got ' + (parsed.ideas || []).length);\nreturn parsed.ideas.map(idea => ({ json: { run_id: runId, ...idea } }));\n"
       },
       "id": "code-parse-business-ideas",
       "name": "Parse & Validate 10 Ideas",
@@ -166,7 +166,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -178,13 +178,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.7 }, messages: [ { role: 'system', content: \"You are a Student Income Opportunities researcher. Based on the trending topics, find at least 8 opportunities for students: online earning opportunities, internship ideas, digital product ideas, AI tools for students, freelancing ideas, and remote jobs. Return strict JSON: {\\\"opportunities\\\": [{\\\"opportunity_name\\\": string, \\\"opportunity_type\\\": \\\"online_earning\\\"|\\\"internship\\\"|\\\"digital_product\\\"|\\\"ai_tool\\\"|\\\"freelancing\\\"|\\\"remote_job\\\", \\\"skill_level\\\": \\\"beginner\\\"|\\\"intermediate\\\"|\\\"advanced\\\", \\\"expected_income\\\": string, \\\"time_required\\\": string, \\\"platforms\\\": string, \\\"resources\\\": string}]}.\" }, { role: 'user', content: `Trending topics:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category})))}\\n\\nGenerate the student opportunities now.` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are a Student Income Opportunities researcher. Based on the trending topics, find at least 8 opportunities for students: online earning opportunities, internship ideas, digital product ideas, AI tools for students, freelancing ideas, and remote jobs. Return strict JSON: {\\\"opportunities\\\": [{\\\"opportunity_name\\\": string, \\\"opportunity_type\\\": \\\"online_earning\\\"|\\\"internship\\\"|\\\"digital_product\\\"|\\\"ai_tool\\\"|\\\"freelancing\\\"|\\\"remote_job\\\", \\\"skill_level\\\": \\\"beginner\\\"|\\\"intermediate\\\"|\\\"advanced\\\", \\\"expected_income\\\": string, \\\"time_required\\\": string, \\\"platforms\\\": string, \\\"resources\\\": string}]}.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Trending topics:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category})))}\\n\\nGenerate the student opportunities now.` } ] } ], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-student",
-      "name": "Generate Student Opportunities (Ollama)",
+      "name": "Generate Student Opportunities (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -197,7 +197,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.opportunities.map(o => ({ json: { run_id: runId, ...o } }));\n"
+        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.opportunities.map(o => ({ json: { run_id: runId, ...o } }));\n"
       },
       "id": "code-parse-student",
       "name": "Parse Student Opportunities",
@@ -252,7 +252,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -264,13 +264,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.75 }, messages: [ { role: 'system', content: \"You are a Viral Trend Analyst. Detect viral business trends, viral AI trends, trending startup ideas, trending digital products, and trending social media topics from the given topics. Return strict JSON: {\\\"trends\\\": [{\\\"trend_name\\\": string, \\\"trend_category\\\": \\\"business\\\"|\\\"ai\\\"|\\\"startup\\\"|\\\"digital_product\\\"|\\\"social_media\\\", \\\"virality_score\\\": number, \\\"growth_potential\\\": string, \\\"competition_score\\\": number, \\\"revenue_potential\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"difficulty_score\\\": number, \\\"seo_score\\\": number, \\\"automation_score\\\": number, \\\"longterm_score\\\": number}]}. All numeric score fields 0-100. Return at least 10 trends.\" }, { role: 'user', content: `Trending topics:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category, viral_score: t.viral_score})))}\\n\\nDetect viral trends now.` } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are a Viral Trend Analyst. Detect viral business trends, viral AI trends, trending startup ideas, trending digital products, and trending social media topics from the given topics. Return strict JSON: {\\\"trends\\\": [{\\\"trend_name\\\": string, \\\"trend_category\\\": \\\"business\\\"|\\\"ai\\\"|\\\"startup\\\"|\\\"digital_product\\\"|\\\"social_media\\\", \\\"virality_score\\\": number, \\\"growth_potential\\\": string, \\\"competition_score\\\": number, \\\"revenue_potential\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"difficulty_score\\\": number, \\\"seo_score\\\": number, \\\"automation_score\\\": number, \\\"longterm_score\\\": number}]}. All numeric score fields 0-100. Return at least 10 trends.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Trending topics:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category, viral_score: t.viral_score})))}\\n\\nDetect viral trends now.` } ] } ], generationConfig: { temperature: 0.75, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-viral",
-      "name": "Detect Viral Trends (Ollama)",
+      "name": "Detect Viral Trends (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -283,7 +283,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.trends.map(t => ({ json: { run_id: runId, ...t } }));\n"
+        "jsCode": "const runId = $('Aggregate Topics').first().json.run_id;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nreturn parsed.trends.map(t => ({ json: { run_id: runId, ...t } }));\n"
       },
       "id": "code-parse-viral",
       "name": "Parse Viral Trends",
@@ -402,24 +402,24 @@
       "main": [
         [
           {
-            "node": "Generate 10 AI Business Ideas (Ollama)",
+            "node": "Generate 10 AI Business Ideas (Gemini)",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Generate Student Opportunities (Ollama)",
+            "node": "Generate Student Opportunities (Gemini)",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Detect Viral Trends (Ollama)",
+            "node": "Detect Viral Trends (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate 10 AI Business Ideas (Ollama)": {
+    "Generate 10 AI Business Ideas (Gemini)": {
       "main": [
         [
           {
@@ -452,7 +452,7 @@
         ]
       ]
     },
-    "Generate Student Opportunities (Ollama)": {
+    "Generate Student Opportunities (Gemini)": {
       "main": [
         [
           {
@@ -485,7 +485,7 @@
         ]
       ]
     },
-    "Detect Viral Trends (Ollama)": {
+    "Detect Viral Trends (Gemini)": {
       "main": [
         [
           {

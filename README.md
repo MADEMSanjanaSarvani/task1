@@ -13,12 +13,13 @@ caption-only YouTube Shorts published to your channel every day**, with fact-che
 stock footage, self-hosted rendering, thumbnail, SEO metadata, and automated QC
 before publish.
 
-Every LLM call runs against a **self-hosted Ollama model** (no OpenAI). Every video
-is assembled from **free stock footage** (Pexels, with Pixabay as a second free
-source) using **self-hosted FFmpeg** — no Runway/Kling/Veo, no Shotstack, no
-Bannerbear, no ElevenLabs. The trade-off: Shorts are **caption-only** (on-screen text
-+ royalty-free music, no AI voiceover) — see section 9a for why, and how to add
-narration back in if you want it later.
+Every LLM call runs against **Gemini** via a free Google AI Studio API key (no
+OpenAI, no self-hosted model to run). Every video is assembled from **free stock
+footage** (Pexels, with Pixabay as a second free source) using **self-hosted
+FFmpeg** — no Runway/Kling/Veo, no Shotstack, no Bannerbear, no ElevenLabs. The
+trade-off: Shorts are **caption-only** (on-screen text + royalty-free music, no AI
+voiceover) — see section 9a for why, and how to add narration back in if you want
+it later.
 
 Import order: `workflows/error-handler-workflow.json` →
 `workflows/01-trend-research-workflow.json` → `workflows/02-content-generation-workflow.json`
@@ -41,8 +42,8 @@ flowchart TD
       D --> E[Categorize and Score Topics - Step 8]
       E --> F[(Postgres: trend_topics)]
       F --> G[Select Top Topics]
-      G --> H1[Digital Product Research - Ollama]
-      G --> H2[Freelancing Research - Ollama]
+      G --> H1[Digital Product Research - Gemini]
+      G --> H2[Freelancing Research - Gemini]
       H1 --> I1[(digital_products)]
       H2 --> I2[(freelancing_opportunities)]
       I1 --> J1[Trigger WF2]
@@ -50,18 +51,18 @@ flowchart TD
     end
 
     subgraph WF2 [02 - Content Generation - Step 4]
-      K[Get Top Topic] --> L[SEO Blog Article 1500+ words - Ollama]
+      K[Get Top Topic] --> L[SEO Blog Article 1500+ words - Gemini]
       L --> M[(blog_posts)] & N[Markdown File]
-      M --> O[Short Content: Twitter/LinkedIn/IG/FB/Telegram/WhatsApp - Ollama]
+      M --> O[Short Content: Twitter/LinkedIn/IG/FB/Telegram/WhatsApp - Gemini]
       O --> P[(social_content)]
-      O --> Q[YouTube Script/Title/Thumbnail/Tags - Ollama]
+      O --> Q[YouTube Script/Title/Thumbnail/Tags - Gemini]
       Q --> R[(youtube_content)]
-      R --> S[Newsletter - Ollama]
+      R --> S[Newsletter - Gemini]
       S --> T[(newsletters)]
     end
 
     subgraph WF3 [03 - Business Ideas, Student Opps, Viral Detection - Steps 5-7]
-      U[Get Top 15 Topics] --> V1[10 AI Business Ideas - Ollama] & V2[Student Opportunities - Ollama] & V3[Viral Trend Detection - Ollama]
+      U[Get Top 15 Topics] --> V1[10 AI Business Ideas - Gemini] & V2[Student Opportunities - Gemini] & V3[Viral Trend Detection - Gemini]
       V1 --> W1[(ai_business_ideas)]
       V2 --> W2[(student_opportunities)]
       V3 --> W3[(viral_trends)]
@@ -70,7 +71,7 @@ flowchart TD
 
     subgraph WF4 [04 - Daily Report and Multi-Destination Sync - Steps 9-10]
       Y[Gather Top-10s per section] --> Z[Assemble Report Bundle]
-      Z --> AA[Recommended Action Plan - Ollama]
+      Z --> AA[Recommended Action Plan - Gemini]
       AA --> AB[Build Markdown + JSON Report]
       AB --> AC[(daily_reports)]
       AC --> AD[Write .md / .json files]
@@ -83,8 +84,8 @@ flowchart TD
     subgraph WF5 [05 - YouTube Shorts Pipeline - 3x per day, captions + music]
       SA[Schedule 09:00 / 14:00 / 19:00] --> SB[Get Next Candidate Topic]
       SB --> SC[Mark Topic Used]
-      SC --> SD[Generate Shorts Script - Ollama]
-      SD --> SE[Fact Check - Ollama]
+      SC --> SD[Generate Shorts Script - Gemini]
+      SD --> SE[Fact Check - Gemini]
       SE --> SF{Confidence >= 90%?}
       SF -- No, under 3 tries --> SG[Rewrite Script] --> SE
       SF -- No, 3rd fail --> SH[Manual Review Alert]
@@ -97,7 +98,7 @@ flowchart TD
       SP --> SQ[FFmpeg: Mix Background Music]
       SQ --> SR[ffprobe Duration] --> SS{QC Passed?}
       SS -- No --> ST[Discord Alert, Not Published]
-      SS -- Yes --> SU[FFmpeg Thumbnail + SEO Metadata - Ollama]
+      SS -- Yes --> SU[FFmpeg Thumbnail + SEO Metadata - Gemini]
       SU --> SV[Upload to YouTube] --> SW[Set Thumbnail] --> SX[(published_videos)] --> SY[Discord Success] --> SZ[Cleanup Render Dir]
     end
 
@@ -128,8 +129,8 @@ flowchart TD
 | **Categorize & Score Topics** | Code node: maps each raw item into one of the 21 opportunity categories via keyword heuristics, tags a recency window (24h/7d/30d), dedupes, and computes all 8 STEP-8 scores (demand, profitability, difficulty, competition, SEO, viral, automation, long-term) |
 | **Save Trend Topics (Postgres)** | Persists the full scored candidate pool |
 | **Select Top Topics** | Keeps the top 2 topics per category (≤20 total) as research seeds |
-| **Digital Product Research (Ollama)** | STEP 2 — returns ≥10 digital products with all required fields + scores |
-| **Freelancing Research (Ollama)** | STEP 3 — returns ≥10 freelancing opportunities with all required fields + scores |
+| **Digital Product Research (Gemini)** | STEP 2 — returns ≥10 digital products with all required fields + scores |
+| **Freelancing Research (Gemini)** | STEP 3 — returns ≥10 freelancing opportunities with all required fields + scores |
 | **Parse + Save nodes** | Validate/flatten each AI response, insert one row per idea |
 | **Trigger Content Generation / Trigger Business-Student-Viral** | `Execute Workflow` nodes hand off to workflows 02 and 03 |
 
@@ -138,12 +139,12 @@ flowchart TD
 | Node | Purpose |
 |---|---|
 | **Get Top Topic (Postgres)** | Pulls the single highest-scoring candidate topic |
-| **Generate SEO Blog Article (Ollama)** | Enforces JSON schema: title, meta description, SEO keywords, intro, main content (markdown, H2/H3), conclusion, ≥5 FAQs; system prompt requires ≥1500 words total |
+| **Generate SEO Blog Article (Gemini)** | Enforces JSON schema: title, meta description, SEO keywords, intro, main content (markdown, H2/H3), conclusion, ≥5 FAQs; system prompt requires ≥1500 words total |
 | **Parse & Validate Blog** | Computes actual word count and carries it forward for auditing |
 | **Build Blog Markdown / Write Blog Markdown File** | Renders the blog as a `.md` file under `output/blogs/` |
-| **Generate Short Content (Ollama)** | One call returning Twitter thread, LinkedIn post, Instagram caption, Facebook post, Telegram post, WhatsApp broadcast |
-| **Generate YouTube Content (Ollama)** | Video title, thumbnail idea, full script, description, tags, hashtags |
-| **Generate Newsletter (Ollama)** | Weekly trends, market insights, opportunities, actionable tips, recommended tools, business ideas |
+| **Generate Short Content (Gemini)** | One call returning Twitter thread, LinkedIn post, Instagram caption, Facebook post, Telegram post, WhatsApp broadcast |
+| **Generate YouTube Content (Gemini)** | Video title, thumbnail idea, full script, description, tags, hashtags |
+| **Generate Newsletter (Gemini)** | Weekly trends, market insights, opportunities, actionable tips, recommended tools, business ideas |
 | Each generator has a matching **Parse** + **Save (Postgres)** pair | One table per content type (`blog_posts`, `social_content`, `youtube_content`, `newsletters`) |
 
 ### Workflow 03 — AI Business Ideas, Student Opportunities & Viral Detection (Steps 5–7)
@@ -151,10 +152,10 @@ flowchart TD
 | Node | Purpose |
 |---|---|
 | **Get Top 15 Topics** | Broader context window than WF2's single topic, since these calls need category diversity |
-| **Generate 10 AI Business Ideas (Ollama)** | STEP 5 — problem, solution, target users, revenue model, dev cost, market size, monthly revenue potential, MVP features, AI features, monetization strategy + 4 scores |
+| **Generate 10 AI Business Ideas (Gemini)** | STEP 5 — problem, solution, target users, revenue model, dev cost, market size, monthly revenue potential, MVP features, AI features, monetization strategy + 4 scores |
 | **Parse & Validate 10 Ideas** | Throws (→ Error Handler) if the model returns fewer than 10 ideas |
-| **Generate Student Opportunities (Ollama)** | STEP 6 — online earning, internships, digital products, AI tools, freelancing, remote jobs, each with skill level/income/time/platforms/resources |
-| **Detect Viral Trends (Ollama)** | STEP 7 — virality score, growth potential, competition score, revenue potential, plus the full STEP 8 scoring set |
+| **Generate Student Opportunities (Gemini)** | STEP 6 — online earning, internships, digital products, AI tools, freelancing, remote jobs, each with skill level/income/time/platforms/resources |
+| **Detect Viral Trends (Gemini)** | STEP 7 — virality score, growth potential, competition score, revenue potential, plus the full STEP 8 scoring set |
 | **Merge Completion → Trigger Daily Report & Sync** | Waits for all three branches, then hands off to workflow 04 |
 
 ### Workflow 04 — Daily Report & Multi-Destination Sync (Steps 9–10)
@@ -163,7 +164,7 @@ flowchart TD
 |---|---|
 | **13 parallel Postgres SELECTs** | Top 10 opportunities/products/freelancing niches/AI tools/startup ideas/trending topics/side hustles, highest-revenue idea, lowest-competition opportunity, and the latest blog/social/YouTube/newsletter rows |
 | **Merge All Report Data → Assemble Report Bundle** | Regroups the 13 branches back into named fields (Merge flattens; the Code node re-attributes by source node name) |
-| **Generate Recommended Action Plan (Ollama)** | STEP 9 §10 — today/this-week/this-month guidance based on the highest-demand + lowest-competition + highest-revenue items |
+| **Generate Recommended Action Plan (Gemini)** | STEP 9 §10 — today/this-week/this-month guidance based on the highest-demand + lowest-competition + highest-revenue items |
 | **Build Daily Report** | Renders the full 10-section Markdown report and keeps the structured JSON alongside it |
 | **Save Daily Report (Postgres)** | System of record for the report |
 | **Write Markdown / JSON files** | STEP 10 file outputs |
@@ -178,8 +179,8 @@ flowchart TD
 |---|---|
 | **Shorts Schedule Trigger (3x/day)** | Cron `0 9,14,19 * * *` — 3 firings/day, each publishing 1 Short |
 | **Get Next Candidate Topic / Mark Topic Used** | Pulls the highest-scoring `trend_topics` row still `candidate`, flips it to `used` so each of the 3 daily firings gets a different topic |
-| **Generate Shorts Script (Ollama)** | 6–10 short punchy sentences written for **reading**, not listening (each sentence becomes one on-screen caption card) |
-| **Fact Check → Confidence >= 90%?** | Independent Ollama verification pass; below threshold routes to **Rewrite Script**, looped back into fact-check, capped at 3 attempts by `_rewrite_count`, then to a Discord "needs manual review" alert |
+| **Generate Shorts Script (Gemini)** | 6–10 short punchy sentences written for **reading**, not listening (each sentence becomes one on-screen caption card) |
+| **Fact Check → Confidence >= 90%?** | Independent Gemini verification pass; below threshold routes to **Rewrite Script**, looped back into fact-check, capped at 3 attempts by `_rewrite_count`, then to a Discord "needs manual review" alert |
 | **Generate Scene Prompts** | Splits the script into one item **per sentence** (this matters — see the note below), each carrying a short Pexels search query derived from the sentence's keywords and a fixed 4s duration |
 | **Split Into Scenes** | Loops one scene at a time (`splitInBatches`, batch size 1) |
 | **Search Pexels Stock Footage → Pexels Found Clip? → Search Pixabay Stock Footage (fallback)** | Pexels is the primary free video source; Pixabay is a second free source if Pexels comes up empty for that query |
@@ -191,7 +192,7 @@ flowchart TD
 | **Build Probe Command → Get Video Duration (ffprobe) → Automated Quality Check** | Reads the real rendered duration and checks it's in a sane Shorts range |
 | **QC Passed?** | Failing QC alerts Discord, cleans up, and stops — never uploads a broken render |
 | **Build Title Caption → Write Title File → Build Thumbnail Command → Extract Thumbnail (FFmpeg)** | Grabs a frame from the final video and burns the title on top as the thumbnail |
-| **Generate SEO Metadata (Ollama)** | Runs in parallel with the thumbnail extraction, merged before upload |
+| **Generate SEO Metadata (Gemini)** | Runs in parallel with the thumbnail extraction, merged before upload |
 | **Read Final Video File / Read Thumbnail File** | Loads the rendered files back into n8n as binary data for the YouTube nodes |
 | **Upload to YouTube → Set YouTube Thumbnail → Log Published Video (Postgres) → Cleanup Render Directory → Notify Success (Discord)** | Uploads `private` with `publishAt` ~1h out, attaches the thumbnail, logs to `published_videos`, deletes the run's temp files, posts the live link |
 
@@ -216,7 +217,7 @@ pipelines): catches any node failure anywhere in the system, logs it to
 |---|---|---|
 | Reddit / Product Hunt / GitHub / Hacker News / News trends | Reddit API, Product Hunt GraphQL API, GitHub REST API, HN Algolia API, NewsAPI.org | Free (NewsAPI free tier: 100 req/day; others free/no key) |
 | YouTube trending + upload | YouTube Data API v3 | Free, quota-limited (10k units/day; an upload costs ~1,600 units) |
-| All content generation (research, blog, social, business ideas, Shorts scripts, fact-check, SEO) | Self-hosted Ollama (`llama3.1:8b` by default) | Free — your own compute, zero per-call cost |
+| All content generation (research, blog, social, business ideas, Shorts scripts, fact-check, SEO) | Gemini API (`gemini-2.0-flash` by default) via a free Google AI Studio key | Free tier — no self-hosting, no per-call charge at this usage volume |
 | Database | Self-hosted Postgres (via `docker-compose.yml`) | Free |
 | Secondary storage | Google Sheets, Airtable (free tier: 1,000 records/base), Notion | Free tiers |
 | Alerts | Discord webhook, Gmail | Free |
@@ -244,13 +245,13 @@ Create these under **Settings → Credentials**:
 8. `YouTube OAuth2` — Google Cloud OAuth client with `youtube.upload`, `youtube.readonly`
    scopes, consented by the channel's owning Google account (walkthrough: section 9)
 
-**Ollama needs no n8n credential at all** — it's called via plain HTTP Request nodes
-against `OLLAMA_BASE_URL` (the `ollama` service on the Docker network), no auth.
-HTTP Request nodes calling Product Hunt, Hacker News, GitHub, NewsAPI, Pexels, and
-Pixabay use header/query auth pulled from environment variables (see
-`docker/.env.example`) rather than n8n credential objects, since these are simple
-API-key/token services — convert any of them to a **Generic Header Auth** credential
-if you prefer not to store keys in `.env`.
+**Gemini needs no n8n credential object either** — every LLM call is a plain HTTP
+Request node with the API key passed as a `key` query parameter read from
+`GEMINI_API_KEY`. HTTP Request nodes calling Product Hunt, Hacker News, GitHub,
+NewsAPI, Pexels, and Pixabay use the same pattern (header/query auth pulled from
+environment variables, see `docker/.env.example`) rather than n8n credential
+objects, since these are simple API-key/token services — convert any of them to a
+**Generic Header Auth** credential if you prefer not to store keys in `.env`.
 
 ---
 
@@ -279,7 +280,7 @@ cp docker/.env.example docker/.env
 ├── db/
 │   └── schema.sql                                 # Postgres/Supabase schema
 ├── docker/
-│   ├── docker-compose.yml                         # Postgres + Ollama + n8n (built w/ FFmpeg)
+│   ├── docker-compose.yml                         # Postgres + n8n (built w/ FFmpeg)
 │   ├── Dockerfile.n8n                             # n8n image + ffmpeg + fonts
 │   └── .env.example
 └── README.md                                      # this file
@@ -322,38 +323,37 @@ cp docker/.env.example docker/.env
 
 ## 8. Deployment Guide (Self-Hosted, Docker)
 
-1. **Provision a VM** (4 vCPU / 8GB RAM minimum — more than the pure-cloud-API
-   version needed, because this VM now also runs the Ollama LLM and does FFmpeg
-   video encoding locally; see section 9a for sizing guidance).
+1. **Provision a VM** (2 vCPU / 4GB RAM is enough — Gemini runs in the cloud, so
+   this box only needs to handle n8n, Postgres, and FFmpeg encoding, not an LLM).
 2. **Install Docker & Docker Compose.**
 3. Clone/copy this project folder to the server.
-4. `cd docker && cp .env.example .env` and fill in all credentials/keys.
+4. `cd docker && cp .env.example .env` and fill in all credentials/keys, including
+   `GEMINI_API_KEY` from [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+   (free, sign in with the Google account you want billed if you ever exceed the
+   free tier — no card required to generate the key itself).
 5. `docker compose up -d` — builds the n8n image (with FFmpeg baked in) and starts
-   Postgres + Ollama + n8n. The first build takes a few minutes.
-6. **Pull an Ollama model** (one-time, several GB download):
-   `docker compose exec ollama ollama pull llama3.1:8b`
-   (match whatever you set `OLLAMA_MODEL` to in `.env`).
-7. Open `http://<server-ip>:5678`, log in with your basic-auth credentials.
-8. **Import workflows** in this order: Error Handler → 01 Trend Research → 02 Content
+   Postgres + n8n. The first build takes a few minutes.
+6. Open `http://<server-ip>:5678`, log in with your basic-auth credentials.
+7. **Import workflows** in this order: Error Handler → 01 Trend Research → 02 Content
    Generation → 03 Business/Student/Viral → 04 Daily Report → 05 YouTube Shorts
    (`Workflows → Import from File`, pick each JSON from `workflows/`).
-9. Set every workflow's error workflow to the imported Error Handler
+8. Set every workflow's error workflow to the imported Error Handler
    (`Workflow Settings → Error Workflow`) — this replaces the placeholder
    `error-handler-workflow-id` string baked into each JSON file.
-10. Update the three `Execute Workflow` nodes (in WF01 → WF02/WF03, and WF03 → WF04)
-    to point at the actual imported workflow IDs — n8n reassigns IDs on import.
-    Workflow 05 doesn't need this: it reads directly from `trend_topics` on its own
-    schedule rather than being triggered by another workflow.
-11. Configure the 8 credential types listed in section 4 (including `YouTube OAuth2`
+9. Update the three `Execute Workflow` nodes (in WF01 → WF02/WF03, and WF03 → WF04)
+   to point at the actual imported workflow IDs — n8n reassigns IDs on import.
+   Workflow 05 doesn't need this: it reads directly from `trend_topics` on its own
+   schedule rather than being triggered by another workflow.
+10. Configure the 8 credential types listed in section 4 (including `YouTube OAuth2`
     — see section 9 if you haven't set this up before), and the 4 Notion database
     IDs / Google Sheet ID / Airtable base ID / `YT_CHANNEL_ID` / `PEXELS_API_KEY` /
     `BG_MUSIC_URL` in `.env`.
-12. Run workflow 01 once manually to verify each branch before activating the
+11. Run workflow 01 once manually to verify each branch before activating the
     schedule trigger; then run workflow 05 once manually against a leftover
     `candidate` topic to verify the full render → upload chain before activating
     its schedule. **This is the step to not skip** — see section 9a for why the
     FFmpeg pipeline specifically deserves a watched first run.
-13. Put a reverse proxy (Caddy/Nginx) with TLS in front of port 5678 for anything
+12. Put a reverse proxy (Caddy/Nginx) with TLS in front of port 5678 for anything
     beyond local testing — see security notes below.
 
 ---
@@ -392,16 +392,24 @@ OAuth client — there's no API-key shortcut for this, and it's free. Walkthroug
 7. **Find your channel ID** for `YT_CHANNEL_ID` in `.env`: YouTube Studio →
    Settings → Channel → Advanced settings, or `https://www.youtube.com/account_advanced`.
 
-### 9a. Ollama & FFmpeg — hardware sizing and confidence notes
+### 9a. Gemini setup, rate limits, and FFmpeg confidence notes
 
-**Ollama sizing**: `llama3.1:8b` (the default in `.env.example`) needs roughly 8GB of
-RAM to run comfortably on CPU alone, and will be slow (tens of seconds to a couple
-minutes per call) without a GPU. With ~20+ LLM calls/day across all 5 workflows, a
-CPU-only 8GB-RAM host will work but each daily run will take a while — that's fine
-for a scheduled batch job, just don't expect real-time responsiveness. If your host
-is smaller, swap `OLLAMA_MODEL` to something lighter (`qwen2.5:3b`, `phi3:mini`) at
-some cost to JSON-schema adherence quality; if you have a GPU, uncomment the GPU
-block in `docker-compose.yml` for a large speedup.
+**Getting a Gemini API key**: go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey),
+sign in with a Google account, click **Create API key**. No separate billing
+project is required to get a free-tier key — it's a different, much shorter flow
+than the YouTube OAuth setup above. Put it in `GEMINI_API_KEY` in `.env`.
+
+**Rate limits**: Google AI Studio's free tier is request-per-minute and
+request-per-day limited (the exact numbers change over time and by model — check
+your current limits at [ai.google.dev/gemini-api/docs/rate-limits](https://ai.google.dev/gemini-api/docs/rate-limits)
+before relying on this unattended). This pipeline makes roughly 15-25 Gemini calls
+across a full daily run (2 in workflow 01, 4 in workflow 02, 3 in workflow 03, 1 in
+workflow 04, up to 4 per video × 3 videos/day in workflow 05) — comfortably inside
+typical free-tier daily limits for `gemini-2.0-flash`, but if you see 429 errors in
+n8n's execution log, either space the workflows further apart in their cron
+schedules or switch `GEMINI_MODEL` to a higher-limit tier. Every `retryOnFail` on
+these HTTP Request nodes already retries once with backoff, which absorbs
+occasional per-minute rate-limit hits without failing the run.
 
 **Font path caveat**: the FFmpeg caption/thumbnail commands reference
 `RENDER_FONT_PATH` (default `/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf`, matching
@@ -431,12 +439,14 @@ itself is always visible there for debugging.
 ## 10. Cost: $0 in ongoing API spend
 
 There is no per-call, per-video, or per-day API cost table for this stack, because
-there's nothing metered left in it — Ollama replaces every OpenAI call, Pexels/Pixabay
-replace paid AI video generation, self-hosted FFmpeg replaces Shotstack and
-Bannerbear, and every storage/notification destination is a free tier. The only
-number to actually budget is **your VM's hosting cost** (a 4vCPU/8GB box capable of
-running Ollama reasonably is typically $24–48/mo on DigitalOcean/Hetzner/similar —
-cheaper if you already have a machine sitting around, or run it locally).
+there's nothing metered left in it at this usage volume — Gemini's free tier
+replaces every OpenAI call, Pexels/Pixabay replace paid AI video generation,
+self-hosted FFmpeg replaces Shotstack and Bannerbear, and every storage/notification
+destination is a free tier. The only number to actually budget is **your VM's
+hosting cost** — since the LLM now runs in Google's cloud rather than on your own
+hardware, a modest 2vCPU/4GB box (enough for n8n, Postgres, and FFmpeg encoding) is
+typically $12–24/mo on DigitalOcean/Hetzner/similar, cheaper than the self-hosted-LLM
+version of this stack would have needed.
 
 If you ever want to reintroduce a paid service for quality (e.g., OpenAI for
 sharper JSON-schema adherence, or ElevenLabs for real narration), every place that
@@ -451,7 +461,9 @@ would need to change is isolated to a single node type per call site — see sec
 - Use n8n's built-in credential store (encrypted at rest via `N8N_ENCRYPTION_KEY`)
   instead of raw env vars wherever a credential type exists (Postgres, Google
   Sheets, Airtable, Notion, Gmail, YouTube) — reserve `.env` for simple API-key
-  services (Product Hunt, GitHub, NewsAPI, Pexels, Pixabay) and for `OLLAMA_BASE_URL`.
+  services (Product Hunt, GitHub, NewsAPI, Pexels, Pixabay) and for `GEMINI_API_KEY`
+  (Gemini calls go through plain HTTP Request nodes, so the key lives in `.env` —
+  treat that file with the same care as any other secret).
 - Put n8n behind a reverse proxy with TLS and keep `N8N_BASIC_AUTH_ACTIVE=true`, or
   better, put it behind SSO/VPN if self-hosting long-term.
 - Scope every OAuth credential (Google Sheets, Gmail, **YouTube**) to only the
@@ -492,22 +504,26 @@ would need to change is isolated to a single node type per call site — see sec
   is safe without editing connections.
 - **Prefer a single richer LLM call over many small ones** where the schema allows
   it (already done for short-form social content and for freelancing/product
-  research) to reduce latency and per-call overhead — this matters more with a
-  slower self-hosted model than it did with a cloud API.
+  research) to reduce latency, call count against your rate limit, and overhead.
 - **Watch YouTube Data API quota**: each upload costs ~1,600 units against the
   10,000/day free quota; at 3 uploads/day plus metadata calls this workflow makes,
   you have headroom, but request a quota increase in Google Cloud Console before
   adding more channels or more daily uploads.
-- **If you later want to spend money for quality**, the swap points are isolated:
-  replace any `Ollama` HTTP Request node with an `n8n-nodes-base.openAi` node
-  (same downstream Code nodes work unchanged — they already read
-  `message.content`/`content` defensively); add ElevenLabs back as a TTS step
-  before "Generate Scene Prompts" and switch the FFmpeg scene command from
-  fixed-4s-per-caption to duration-matched-to-narration; or swap the Pexels/Pixabay
-  search for a paid AI video generation call feeding the same "Build Scene Files"
-  step, same normalized `{index, text, video_url}` shape.
-- **GPU for Ollama** cuts LLM latency dramatically if you have one available —
-  uncomment the GPU block in `docker-compose.yml`'s `ollama` service.
+- **Watch Gemini's rate limits the same way** (section 9a) — if you scale up to
+  more research runs/day or more Shorts/day, you'll hit the free tier's
+  requests-per-day ceiling before you hit any cost, since there isn't a paid
+  fallback wired in. Space out cron schedules or move to a paid Gemini tier if so.
+- **If you want to swap the LLM backend later**, the change is isolated to each
+  `(Gemini)` HTTP Request node's URL/body — every downstream Parse Code node
+  already reads the response defensively (`candidates[0].content.parts[0].text` /
+  `message.content` / `content`, in that order), so it'll keep working unchanged
+  against Gemini, self-hosted Ollama, or an OpenAI-shaped API without further edits.
+- **If you later want real narration**, add a TTS step (ElevenLabs, or self-hosted
+  Piper/Coqui) before "Generate Scene Prompts" and switch the FFmpeg scene command
+  from fixed-4s-per-caption to duration-matched-to-narration.
+- **If you want AI-generated video instead of stock footage**, swap the Pexels/
+  Pixabay search for a paid AI video generation call feeding the same "Build Scene
+  Files" step, same normalized `{index, text, video_url}` shape.
 
 ---
 

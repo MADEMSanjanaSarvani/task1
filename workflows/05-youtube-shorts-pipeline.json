@@ -110,7 +110,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -122,13 +122,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.7 }, messages: [ { role: 'system', content: \"You are an expert short-form scriptwriter for a YouTube Shorts channel about AI tools, freelancing, side hustles, digital products, and online business opportunities. The video will be CAPTION-ONLY (on-screen text synced to background music, no voiceover), so write for READING not listening. Always return strict JSON with keys: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords (array), hashtags (array), description. Rules: full_script must be 6-10 short punchy sentences (each becomes a single on-screen caption card, so keep each sentence under 12 words), factually accurate (no invented income guarantees or unverifiable stats), strong opening hook, cta points viewers to 'link in bio' for the full breakdown, no copyrighted quotes.\" }, { role: 'user', content: `Topic: ${$('Get Next Candidate Topic').item.json.title}\\nCategory: ${$('Get Next Candidate Topic').item.json.category}\\nWhy it matters (scores): demand ${$('Get Next Candidate Topic').item.json.demand_score}, profitability ${$('Get Next Candidate Topic').item.json.profitability_score}, competition ${$('Get Next Candidate Topic').item.json.competition_score}.\\nWrite the short script now.` } ] }) }",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are an expert short-form scriptwriter for a YouTube Shorts channel about AI tools, freelancing, side hustles, digital products, and online business opportunities. The video will be CAPTION-ONLY (on-screen text synced to background music, no voiceover), so write for READING not listening. Always return strict JSON with keys: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords (array), hashtags (array), description. Rules: full_script must be 6-10 short punchy sentences (each becomes a single on-screen caption card, so keep each sentence under 12 words), factually accurate (no invented income guarantees or unverifiable stats), strong opening hook, cta points viewers to 'link in bio' for the full breakdown, no copyrighted quotes.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Topic: ${$('Get Next Candidate Topic').item.json.title}\\nCategory: ${$('Get Next Candidate Topic').item.json.category}\\nWhy it matters (scores): demand ${$('Get Next Candidate Topic').item.json.demand_score}, profitability ${$('Get Next Candidate Topic').item.json.profitability_score}, competition ${$('Get Next Candidate Topic').item.json.competition_score}.\\nWrite the short script now.` } ] } ], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-generate-script",
-      "name": "Generate Shorts Script (Ollama)",
+      "name": "Generate Shorts Script (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -141,7 +141,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const topic = $('Get Next Candidate Topic').first().json;\nconst raw = $input.first().json.message?.content || $input.first().json.content || $input.first().json.text;\nlet parsed;\ntry { parsed = JSON.parse(raw); } catch (e) { throw new Error('Script JSON parse failed: ' + e.message); }\nparsed._rewrite_count = 0;\nparsed.topic_id = topic.id;\nreturn [{ json: parsed }];\n"
+        "jsCode": "const topic = $('Get Next Candidate Topic').first().json;\nconst raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content || $input.first().json.text;\nlet parsed;\ntry { parsed = JSON.parse(raw); } catch (e) { throw new Error('Script JSON parse failed: ' + e.message); }\nparsed._rewrite_count = 0;\nparsed.topic_id = topic.id;\nreturn [{ json: parsed }];\n"
       },
       "id": "code-parse-script",
       "name": "Parse Script Output",
@@ -155,7 +155,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -167,13 +167,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0 }, messages: [ { role: 'system', content: \"You are a rigorous fact-checking model for business/finance content. Verify every factual claim, income figure, and platform reference in the script. Return strict JSON: {\\\"confidence\\\": 0-100, \\\"issues\\\": [string], \\\"verdict\\\": \\\"pass\\\"|\\\"fail\\\"}. Penalize unverifiable income guarantees heavily.\" }, { role: 'user', content: `Fact-check this script:\\n\\n${$json.full_script}` } ] }) }",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"You are a rigorous fact-checking model for business/finance content. Verify every factual claim, income figure, and platform reference in the script. Return strict JSON: {\\\"confidence\\\": 0-100, \\\"issues\\\": [string], \\\"verdict\\\": \\\"pass\\\"|\\\"fail\\\"}. Penalize unverifiable income guarantees heavily.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Fact-check this script:\\n\\n${$json.full_script}` } ] } ], generationConfig: { temperature: 0, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-fact-check",
-      "name": "Fact Check Script (Ollama)",
+      "name": "Fact Check Script (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -186,7 +186,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const fc = JSON.parse($input.first().json.message?.content || $input.first().json.content);\nconst script = $('Parse Script Output').first().json;\nreturn [{ json: { ...script, fact_check: fc } }];\n"
+        "jsCode": "const fc = JSON.parse($input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content);\nconst script = $('Parse Script Output').first().json;\nreturn [{ json: { ...script, fact_check: fc } }];\n"
       },
       "id": "code-merge-factcheck",
       "name": "Attach Fact-Check Result",
@@ -248,7 +248,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -260,13 +260,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.5 }, messages: [ { role: 'system', content: \"Rewrite the script to fix the factual issues listed while preserving format and length. Return the same JSON schema as before: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords, hashtags, description.\" }, { role: 'user', content: `Original script: ${$json.full_script}\\nIssues to fix: ${$json.fact_check.issues.join(', ')}` } ] }) }",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"Rewrite the script to fix the factual issues listed while preserving format and length. Return the same JSON schema as before: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords, hashtags, description.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Original script: ${$json.full_script}\\nIssues to fix: ${$json.fact_check.issues.join(', ')}` } ] } ], generationConfig: { temperature: 0.5, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-rewrite-script",
-      "name": "Rewrite Script (Ollama)",
+      "name": "Rewrite Script (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -279,7 +279,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nparsed.topic_id = $('Attach Fact-Check Result').first().json.topic_id;\nparsed._rewrite_count = ($('Attach Fact-Check Result').first().json._rewrite_count || 0) + 1;\nreturn [{ json: parsed }];\n"
+        "jsCode": "const raw = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text || $input.first().json.message?.content || $input.first().json.content;\nconst parsed = JSON.parse(raw);\nparsed.topic_id = $('Attach Fact-Check Result').first().json.topic_id;\nparsed._rewrite_count = ($('Attach Fact-Check Result').first().json._rewrite_count || 0) + 1;\nreturn [{ json: parsed }];\n"
       },
       "id": "code-parse-rewrite",
       "name": "Parse Rewritten Script",
@@ -845,7 +845,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{$env.GEMINI_MODEL || 'gemini-2.0-flash'}}:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -857,13 +857,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"Generate YouTube Shorts SEO metadata. Return strict JSON: {\\\"seo_title\\\": string, \\\"description\\\": string, \\\"tags\\\": [string], \\\"hashtags\\\": [string]}. Title under 100 chars, hook-driven, includes #Shorts.\" }, { role: 'user', content: `Script title: ${$('Automated Quality Check').item.json.title}\\nScript: ${$('Automated Quality Check').item.json.full_script}` } ] }) }",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [ { text: \"Generate YouTube Shorts SEO metadata. Return strict JSON: {\\\"seo_title\\\": string, \\\"description\\\": string, \\\"tags\\\": [string], \\\"hashtags\\\": [string]}. Title under 100 chars, hook-driven, includes #Shorts.\" } ] }, contents: [ { role: 'user', parts: [ { text: `Script title: ${$('Automated Quality Check').item.json.title}\\nScript: ${$('Automated Quality Check').item.json.full_script}` } ] } ], generationConfig: { temperature: 0.6, responseMimeType: 'application/json' } }) }}",
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "openai-seo",
-      "name": "Generate SEO Metadata (Ollama)",
+      "name": "Generate SEO Metadata (Gemini)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -909,13 +909,13 @@
       "parameters": {
         "resource": "video",
         "operation": "upload",
-        "title": "={{$('Generate SEO Metadata (Ollama)').first().json.seo_title}}",
-        "description": "={{$('Generate SEO Metadata (Ollama)').first().json.description}}",
+        "title": "={{$('Generate SEO Metadata (Gemini)').first().json.seo_title}}",
+        "description": "={{$('Generate SEO Metadata (Gemini)').first().json.description}}",
         "categoryId": "27",
         "regionCode": "US",
         "options": {
           "privacyStatus": "private",
-          "tags": "={{$('Generate SEO Metadata (Ollama)').first().json.tags.join(',')}}",
+          "tags": "={{$('Generate SEO Metadata (Gemini)').first().json.tags.join(',')}}",
           "publishAt": "={{$now.plus({hours:1}).toISO()}}"
         },
         "binaryPropertyName": "data"
@@ -1141,14 +1141,14 @@
       "main": [
         [
           {
-            "node": "Generate Shorts Script (Ollama)",
+            "node": "Generate Shorts Script (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate Shorts Script (Ollama)": {
+    "Generate Shorts Script (Gemini)": {
       "main": [
         [
           {
@@ -1163,14 +1163,14 @@
       "main": [
         [
           {
-            "node": "Fact Check Script (Ollama)",
+            "node": "Fact Check Script (Gemini)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fact Check Script (Ollama)": {
+    "Fact Check Script (Gemini)": {
       "main": [
         [
           {
@@ -1214,7 +1214,7 @@
       "main": [
         [
           {
-            "node": "Rewrite Script (Ollama)",
+            "node": "Rewrite Script (Gemini)",
             "type": "main",
             "index": 0
           }
@@ -1228,7 +1228,7 @@
         ]
       ]
     },
-    "Rewrite Script (Ollama)": {
+    "Rewrite Script (Gemini)": {
       "main": [
         [
           {
@@ -1243,7 +1243,7 @@
       "main": [
         [
           {
-            "node": "Fact Check Script (Ollama)",
+            "node": "Fact Check Script (Gemini)",
             "type": "main",
             "index": 0
           }
@@ -1559,7 +1559,7 @@
             "index": 0
           },
           {
-            "node": "Generate SEO Metadata (Ollama)",
+            "node": "Generate SEO Metadata (Gemini)",
             "type": "main",
             "index": 0
           }
@@ -1617,7 +1617,7 @@
         ]
       ]
     },
-    "Generate SEO Metadata (Ollama)": {
+    "Generate SEO Metadata (Gemini)": {
       "main": [
         [
           {
