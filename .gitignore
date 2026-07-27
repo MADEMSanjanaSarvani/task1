@@ -2,3 +2,7 @@ docker/.env
 .env
 *.log
 node_modules/
+__pycache__/
+*.pyc
+output/
+

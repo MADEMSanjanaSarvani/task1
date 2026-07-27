@@ -1,5 +1,11 @@
 # AI Content Automation — n8n Daily Trend, Product & Content Pipeline
 
+> **Two implementations of the same pipeline live in this repo.** This file
+> documents the n8n version (self-hosted, visual editor). For the GitHub
+> Actions version (no server, runs as scheduled Python on GitHub's own
+> infrastructure), see **[README-GITHUB-ACTIONS.md](README-GITHUB-ACTIONS.md)**.
+> Pick one — you don't need both running at once.
+
 A self-hosted n8n system that implements the full "Master Prompt for n8n AI Content
 Automation" — and runs at **$0 ongoing cost** (aside from whatever you already pay to
 host a small VM). It researches trending opportunities every day across 21 categories

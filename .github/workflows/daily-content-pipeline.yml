@@ -1,0 +1,107 @@
+name: Daily Content Pipeline
+
+on:
+  schedule:
+    # 06:00 UTC daily - adjust to your timezone's equivalent UTC hour.
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+env:
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.0-flash' }}
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+  ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+  SMTP_HOST: ${{ secrets.SMTP_HOST }}
+  SMTP_PORT: ${{ secrets.SMTP_PORT }}
+  SMTP_USER: ${{ secrets.SMTP_USER }}
+  SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+  OUTPUT_DIR: ${{ github.workspace }}/output
+
+jobs:
+  trend-research:
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.run.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - id: run
+        working-directory: scripts
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          PRODUCTHUNT_TOKEN: ${{ secrets.PRODUCTHUNT_TOKEN }}
+          GH_SEARCH_TOKEN: ${{ secrets.GH_SEARCH_TOKEN }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python 01_trend_research.py
+
+  content-generation:
+    needs: trend-research
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - working-directory: scripts
+        run: |
+          mkdir -p "$OUTPUT_DIR/blogs"
+          python 02_content_generation.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blog-output-${{ needs.trend-research.outputs.run_id }}
+          path: output/blogs/
+          if-no-files-found: ignore
+
+  business-student-viral:
+    needs: trend-research
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - working-directory: scripts
+        run: python 03_business_student_viral.py
+
+  daily-report:
+    needs: [content-generation, business-student-viral]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - working-directory: scripts
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID_TRENDS: ${{ secrets.NOTION_DATABASE_ID_TRENDS }}
+          NOTION_DATABASE_ID_PRODUCTS: ${{ secrets.NOTION_DATABASE_ID_PRODUCTS }}
+          NOTION_DATABASE_ID_CONTENT: ${{ secrets.NOTION_DATABASE_ID_CONTENT }}
+          NOTION_DATABASE_ID_REPORTS: ${{ secrets.NOTION_DATABASE_ID_REPORTS }}
+        run: |
+          mkdir -p "$OUTPUT_DIR/reports" "$OUTPUT_DIR/json"
+          python 04_daily_report.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daily-report-${{ needs.trend-research.outputs.run_id }}
+          path: |
+            output/reports/
+            output/json/
+          if-no-files-found: ignore
