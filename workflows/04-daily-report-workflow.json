@@ -499,7 +499,7 @@
         "resource": "databasePage",
         "operation": "create",
         "databaseId": { "value": "={{$env.NOTION_DATABASE_ID_TRENDS}}" },
-        "title": "=Trend Report {{$json.run_id}}",
+        "title": "={{$json.title}}",
         "propertiesUi": { "propertyValues": [] }
       },
       "id": "notion-trends",
@@ -515,7 +515,7 @@
         "resource": "databasePage",
         "operation": "create",
         "databaseId": { "value": "={{$env.NOTION_DATABASE_ID_PRODUCTS}}" },
-        "title": "=Digital Products {{$json.run_id}}",
+        "title": "={{$json.product_name}}",
         "propertiesUi": { "propertyValues": [] }
       },
       "id": "notion-products",
@@ -586,19 +586,46 @@
       { "node": "Get Latest YouTube Content", "type": "main", "index": 0 },
       { "node": "Get Latest Newsletter", "type": "main", "index": 0 }
     ] ] },
-    "Get Top 10 Opportunities": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 0 } ] ] },
-    "Get Top 10 Digital Products": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 1 } ] ] },
-    "Get Top 10 Freelancing Niches": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 2 } ] ] },
+    "Get Top 10 Opportunities": { "main": [ [
+      { "node": "Merge All Report Data", "type": "main", "index": 0 },
+      { "node": "Sync to Google Sheets: Trends", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: Trends", "type": "main", "index": 0 },
+      { "node": "Sync to Notion: Trends DB", "type": "main", "index": 0 }
+    ] ] },
+    "Get Top 10 Digital Products": { "main": [ [
+      { "node": "Merge All Report Data", "type": "main", "index": 1 },
+      { "node": "Sync to Google Sheets: Digital Products", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: Digital Products", "type": "main", "index": 0 },
+      { "node": "Sync to Notion: Products DB", "type": "main", "index": 0 }
+    ] ] },
+    "Get Top 10 Freelancing Niches": { "main": [ [
+      { "node": "Merge All Report Data", "type": "main", "index": 2 },
+      { "node": "Sync to Google Sheets: Freelancing", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: Freelancing", "type": "main", "index": 0 }
+    ] ] },
     "Get Top AI Tools": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 3 } ] ] },
-    "Get Top Startup Ideas": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 4 } ] ] },
+    "Get Top Startup Ideas": { "main": [ [
+      { "node": "Merge All Report Data", "type": "main", "index": 4 },
+      { "node": "Sync to Google Sheets: AI Business Ideas", "type": "main", "index": 0 },
+      { "node": "Sync to Airtable: AI Business Ideas", "type": "main", "index": 0 }
+    ] ] },
     "Get Top Trending Topics": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 5 } ] ] },
     "Get Best Side Hustles": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 6 } ] ] },
     "Get Highest Revenue Opportunity": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 7 } ] ] },
     "Get Lowest Competition Opportunity": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 8 } ] ] },
-    "Get Latest Blog Post": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 9 } ] ] },
-    "Get Latest Social Content": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 10 } ] ] },
+    "Get Latest Blog Post": { "main": [ [
+      { "node": "Merge All Report Data", "type": "main", "index": 9 },
+      { "node": "Sync to Google Sheets: Blogs", "type": "main", "index": 0 }
+    ] ] },
+    "Get Latest Social Content": { "main": [ [
+      { "node": "Merge All Report Data", "type": "main", "index": 10 },
+      { "node": "Sync to Google Sheets: Social Media Posts", "type": "main", "index": 0 }
+    ] ] },
     "Get Latest YouTube Content": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 11 } ] ] },
-    "Get Latest Newsletter": { "main": [ [ { "node": "Merge All Report Data", "type": "main", "index": 12 } ] ] },
+    "Get Latest Newsletter": { "main": [ [
+      { "node": "Merge All Report Data", "type": "main", "index": 12 },
+      { "node": "Sync to Google Sheets: Newsletters", "type": "main", "index": 0 }
+    ] ] },
     "Merge All Report Data": { "main": [ [ { "node": "Assemble Report Bundle", "type": "main", "index": 0 } ] ] },
     "Assemble Report Bundle": { "main": [ [ { "node": "Generate Recommended Action Plan (OpenAI)", "type": "main", "index": 0 } ] ] },
     "Generate Recommended Action Plan (OpenAI)": { "main": [ [ { "node": "Build Daily Report (Markdown + JSON)", "type": "main", "index": 0 } ] ] },
@@ -607,21 +634,8 @@
     "Build Report Files (MD + JSON)": { "main": [ [
       { "node": "Write Daily Report Markdown", "type": "main", "index": 0 },
       { "node": "Write Daily Report JSON", "type": "main", "index": 0 },
-      { "node": "Sync to Google Sheets: Trends", "type": "main", "index": 0 },
-      { "node": "Sync to Google Sheets: Digital Products", "type": "main", "index": 0 },
-      { "node": "Sync to Google Sheets: Freelancing", "type": "main", "index": 0 },
-      { "node": "Sync to Google Sheets: AI Business Ideas", "type": "main", "index": 0 },
-      { "node": "Sync to Google Sheets: Blogs", "type": "main", "index": 0 },
-      { "node": "Sync to Google Sheets: Social Media Posts", "type": "main", "index": 0 },
-      { "node": "Sync to Google Sheets: Newsletters", "type": "main", "index": 0 },
       { "node": "Sync to Google Sheets: Daily Reports", "type": "main", "index": 0 },
-      { "node": "Sync to Airtable: Trends", "type": "main", "index": 0 },
-      { "node": "Sync to Airtable: Digital Products", "type": "main", "index": 0 },
-      { "node": "Sync to Airtable: Freelancing", "type": "main", "index": 0 },
-      { "node": "Sync to Airtable: AI Business Ideas", "type": "main", "index": 0 },
       { "node": "Sync to Airtable: Daily Reports", "type": "main", "index": 0 },
-      { "node": "Sync to Notion: Trends DB", "type": "main", "index": 0 },
-      { "node": "Sync to Notion: Products DB", "type": "main", "index": 0 },
       { "node": "Sync to Notion: Content DB", "type": "main", "index": 0 },
       { "node": "Sync to Notion: Reports DB", "type": "main", "index": 0 },
       { "node": "Notify Report Ready (Discord)", "type": "main", "index": 0 }
