@@ -18,12 +18,34 @@ services:
       timeout: 5s
       retries: 5
 
+  # Self-hosted LLM - replaces OpenAI entirely, zero per-call cost.
+  # Pull a model after first start: docker compose exec ollama ollama pull llama3.1:8b
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # Uncomment to use an NVIDIA GPU if the host has one (much faster; CPU-only works but is slow):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   n8n:
-    image: n8nio/n8n:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_started
     ports:
       - "5678:5678"
     env_file: .env
@@ -50,8 +72,11 @@ services:
       - n8n_data:/home/node/.n8n
       - ../workflows:/home/node/imports:ro
       - output_files:/home/node/output
+      - render_workspace:/home/node/render
 
 volumes:
   postgres_data:
+  ollama_models:
   n8n_data:
   output_files:
+  render_workspace:

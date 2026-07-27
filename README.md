@@ -1,24 +1,32 @@
 # AI Content Automation — n8n Daily Trend, Product & Content Pipeline
 
 A self-hosted n8n system that implements the full "Master Prompt for n8n AI Content
-Automation": it researches trending opportunities every day across 21 categories
+Automation" — and runs at **$0 ongoing cost** (aside from whatever you already pay to
+host a small VM). It researches trending opportunities every day across 21 categories
 (freelancing, digital products, AI tools, SaaS, side hustles, and more), turns the
 best ones into a full content package (SEO blog, short-form social posts, YouTube
 script, newsletter), generates 10 fresh AI business ideas, finds student-friendly
 opportunities, detects viral trends, scores everything on 8 dimensions, and produces
 a daily report that's synced to Postgres, Google Sheets, Airtable, Notion, and
 Markdown/JSON files. A fifth workflow turns the same daily trend pool into **3
-AI-generated YouTube Shorts published to your channel every day**, complete with
-fact-checking, voiceover, AI video generation (with stock-footage fallback), thumbnail,
-SEO metadata, and automated QC before publish.
+caption-only YouTube Shorts published to your channel every day**, with fact-checking,
+stock footage, self-hosted rendering, thumbnail, SEO metadata, and automated QC
+before publish.
+
+Every LLM call runs against a **self-hosted Ollama model** (no OpenAI). Every video
+is assembled from **free stock footage** (Pexels, with Pixabay as a second free
+source) using **self-hosted FFmpeg** — no Runway/Kling/Veo, no Shotstack, no
+Bannerbear, no ElevenLabs. The trade-off: Shorts are **caption-only** (on-screen text
++ royalty-free music, no AI voiceover) — see section 9a for why, and how to add
+narration back in if you want it later.
 
 Import order: `workflows/error-handler-workflow.json` →
 `workflows/01-trend-research-workflow.json` → `workflows/02-content-generation-workflow.json`
 → `workflows/03-business-student-viral-workflow.json` → `workflows/04-daily-report-workflow.json`
 → `workflows/05-youtube-shorts-pipeline.json`.
 Set every workflow's `settings.errorWorkflow` to the imported Error Handler's real
-workflow ID after import (the placeholder `error-workflow-id` in each JSON file must
-be replaced).
+workflow ID after import (the placeholder `error-handler-workflow-id` in each JSON
+file must be replaced).
 
 ---
 
@@ -28,13 +36,13 @@ be replaced).
 flowchart TD
     subgraph WF1 [01 - Trend & Opportunity Research - Steps 1-3]
       A[Daily Schedule 06:00] --> B[Run Config]
-      B --> C1[Reddit] & C2[Product Hunt] & C3[Hacker News] & C4[GitHub Trending] & C5[Google Trends] & C6[News] & C7[YouTube Trending]
-      C1 & C2 & C3 & C4 & C5 & C6 & C7 --> D[Merge Sources]
+      B --> C1[Reddit] & C2[Product Hunt] & C3[Hacker News] & C4[GitHub Trending] & C5[News] & C6[YouTube Trending]
+      C1 & C2 & C3 & C4 & C5 & C6 --> D[Merge Sources]
       D --> E[Categorize and Score Topics - Step 8]
       E --> F[(Postgres: trend_topics)]
       F --> G[Select Top Topics]
-      G --> H1[Digital Product Research - OpenAI]
-      G --> H2[Freelancing Research - OpenAI]
+      G --> H1[Digital Product Research - Ollama]
+      G --> H2[Freelancing Research - Ollama]
       H1 --> I1[(digital_products)]
       H2 --> I2[(freelancing_opportunities)]
       I1 --> J1[Trigger WF2]
@@ -42,18 +50,18 @@ flowchart TD
     end
 
     subgraph WF2 [02 - Content Generation - Step 4]
-      K[Get Top Topic] --> L[SEO Blog Article 1500+ words]
+      K[Get Top Topic] --> L[SEO Blog Article 1500+ words - Ollama]
       L --> M[(blog_posts)] & N[Markdown File]
-      M --> O[Short Content: Twitter/LinkedIn/IG/FB/Telegram/WhatsApp]
+      M --> O[Short Content: Twitter/LinkedIn/IG/FB/Telegram/WhatsApp - Ollama]
       O --> P[(social_content)]
-      O --> Q[YouTube Script/Title/Thumbnail/Tags]
+      O --> Q[YouTube Script/Title/Thumbnail/Tags - Ollama]
       Q --> R[(youtube_content)]
-      R --> S[Newsletter]
+      R --> S[Newsletter - Ollama]
       S --> T[(newsletters)]
     end
 
     subgraph WF3 [03 - Business Ideas, Student Opps, Viral Detection - Steps 5-7]
-      U[Get Top 15 Topics] --> V1[10 AI Business Ideas] & V2[Student Opportunities] & V3[Viral Trend Detection]
+      U[Get Top 15 Topics] --> V1[10 AI Business Ideas - Ollama] & V2[Student Opportunities - Ollama] & V3[Viral Trend Detection - Ollama]
       V1 --> W1[(ai_business_ideas)]
       V2 --> W2[(student_opportunities)]
       V3 --> W3[(viral_trends)]
@@ -62,7 +70,7 @@ flowchart TD
 
     subgraph WF4 [04 - Daily Report and Multi-Destination Sync - Steps 9-10]
       Y[Gather Top-10s per section] --> Z[Assemble Report Bundle]
-      Z --> AA[Recommended Action Plan - OpenAI]
+      Z --> AA[Recommended Action Plan - Ollama]
       AA --> AB[Build Markdown + JSON Report]
       AB --> AC[(daily_reports)]
       AC --> AD[Write .md / .json files]
@@ -72,19 +80,25 @@ flowchart TD
       AC --> AH[Discord notification]
     end
 
-    subgraph WF5 [05 - YouTube Shorts Pipeline - 3x per day]
+    subgraph WF5 [05 - YouTube Shorts Pipeline - 3x per day, captions + music]
       SA[Schedule 09:00 / 14:00 / 19:00] --> SB[Get Next Candidate Topic]
       SB --> SC[Mark Topic Used]
-      SC --> SD[Generate Shorts Script - OpenAI]
-      SD --> SE[Fact Check - OpenAI]
+      SC --> SD[Generate Shorts Script - Ollama]
+      SD --> SE[Fact Check - Ollama]
       SE --> SF{Confidence >= 90%?}
       SF -- No, under 3 tries --> SG[Rewrite Script] --> SE
       SF -- No, 3rd fail --> SH[Manual Review Alert]
-      SF -- Yes --> SI[ElevenLabs Voiceover]
-      SI --> SJ[Scene Prompts] --> SK[Per-scene: AI Video Gen or Pexels Fallback]
-      SK --> SL[Shotstack Render] --> SM[Poll Until Done] --> SN{QC Passed?}
-      SN -- No --> SO[Discord Alert, Not Published]
-      SN -- Yes --> SP[Thumbnail + SEO Metadata] --> SQ[Download Video] --> SR[Upload to YouTube] --> SS[Set Thumbnail] --> ST[(published_videos)] --> SU[Discord Success]
+      SF -- Yes --> SI[Scene Prompts + Split Into Scenes]
+      SI --> SJ[Pexels Search] --> SK{Found Clip?}
+      SK -- No --> SL[Pixabay Fallback] --> SM[Merge]
+      SK -- Yes --> SM[Merge]
+      SM --> SN[Download Clip + Caption File] --> SO[FFmpeg: Scale/Crop/Caption Scene] --> SI
+      SI -- loop done --> SP[FFmpeg: Concat Scenes]
+      SP --> SQ[FFmpeg: Mix Background Music]
+      SQ --> SR[ffprobe Duration] --> SS{QC Passed?}
+      SS -- No --> ST[Discord Alert, Not Published]
+      SS -- Yes --> SU[FFmpeg Thumbnail + SEO Metadata - Ollama]
+      SU --> SV[Upload to YouTube] --> SW[Set Thumbnail] --> SX[(published_videos)] --> SY[Discord Success] --> SZ[Cleanup Render Dir]
     end
 
     J1 -.-> K
@@ -109,13 +123,13 @@ flowchart TD
 |---|---|
 | **Daily Schedule Trigger (06:00)** | Cron `0 6 * * *` — one full research + content run per day |
 | **Run Config** | Generates `run_id`/`run_date` used to tie every downstream row together |
-| **Fetch Reddit / Product Hunt / Hacker News / GitHub Trending / Google Trends / News / YouTube Trending** | 7 parallel HTTP calls, each with `continueOnFail` + retry so one dead source doesn't kill the run |
-| **Merge All Sources** | Appends all 7 branches into one flat item list |
+| **Fetch Reddit / Product Hunt / Hacker News / GitHub Trending / News / YouTube Trending** | 6 parallel HTTP calls, each with `continueOnFail` + retry so one dead source doesn't kill the run. (Google Trends/SerpAPI was intentionally dropped — it's a paid API with no free key-based equivalent; these 6 free sources already cover trend discovery.) |
+| **Merge All Sources** | Appends all 6 branches into one flat item list |
 | **Categorize & Score Topics** | Code node: maps each raw item into one of the 21 opportunity categories via keyword heuristics, tags a recency window (24h/7d/30d), dedupes, and computes all 8 STEP-8 scores (demand, profitability, difficulty, competition, SEO, viral, automation, long-term) |
 | **Save Trend Topics (Postgres)** | Persists the full scored candidate pool |
 | **Select Top Topics** | Keeps the top 2 topics per category (≤20 total) as research seeds |
-| **Digital Product Research (OpenAI)** | STEP 2 — returns ≥10 digital products with all required fields + scores |
-| **Freelancing Research (OpenAI)** | STEP 3 — returns ≥10 freelancing opportunities with all required fields + scores |
+| **Digital Product Research (Ollama)** | STEP 2 — returns ≥10 digital products with all required fields + scores |
+| **Freelancing Research (Ollama)** | STEP 3 — returns ≥10 freelancing opportunities with all required fields + scores |
 | **Parse + Save nodes** | Validate/flatten each AI response, insert one row per idea |
 | **Trigger Content Generation / Trigger Business-Student-Viral** | `Execute Workflow` nodes hand off to workflows 02 and 03 |
 
@@ -124,12 +138,12 @@ flowchart TD
 | Node | Purpose |
 |---|---|
 | **Get Top Topic (Postgres)** | Pulls the single highest-scoring candidate topic |
-| **Generate SEO Blog Article** | Enforces JSON schema: title, meta description, SEO keywords, intro, main content (markdown, H2/H3), conclusion, ≥5 FAQs; system prompt requires ≥1500 words total |
+| **Generate SEO Blog Article (Ollama)** | Enforces JSON schema: title, meta description, SEO keywords, intro, main content (markdown, H2/H3), conclusion, ≥5 FAQs; system prompt requires ≥1500 words total |
 | **Parse & Validate Blog** | Computes actual word count and carries it forward for auditing |
 | **Build Blog Markdown / Write Blog Markdown File** | Renders the blog as a `.md` file under `output/blogs/` |
-| **Generate Short Content** | One call returning Twitter thread, LinkedIn post, Instagram caption, Facebook post, Telegram post, WhatsApp broadcast |
-| **Generate YouTube Content** | Video title, thumbnail idea, full script, description, tags, hashtags |
-| **Generate Newsletter** | Weekly trends, market insights, opportunities, actionable tips, recommended tools, business ideas |
+| **Generate Short Content (Ollama)** | One call returning Twitter thread, LinkedIn post, Instagram caption, Facebook post, Telegram post, WhatsApp broadcast |
+| **Generate YouTube Content (Ollama)** | Video title, thumbnail idea, full script, description, tags, hashtags |
+| **Generate Newsletter (Ollama)** | Weekly trends, market insights, opportunities, actionable tips, recommended tools, business ideas |
 | Each generator has a matching **Parse** + **Save (Postgres)** pair | One table per content type (`blog_posts`, `social_content`, `youtube_content`, `newsletters`) |
 
 ### Workflow 03 — AI Business Ideas, Student Opportunities & Viral Detection (Steps 5–7)
@@ -137,10 +151,10 @@ flowchart TD
 | Node | Purpose |
 |---|---|
 | **Get Top 15 Topics** | Broader context window than WF2's single topic, since these calls need category diversity |
-| **Generate 10 AI Business Ideas** | STEP 5 — problem, solution, target users, revenue model, dev cost, market size, monthly revenue potential, MVP features, AI features, monetization strategy + 4 scores |
+| **Generate 10 AI Business Ideas (Ollama)** | STEP 5 — problem, solution, target users, revenue model, dev cost, market size, monthly revenue potential, MVP features, AI features, monetization strategy + 4 scores |
 | **Parse & Validate 10 Ideas** | Throws (→ Error Handler) if the model returns fewer than 10 ideas |
-| **Generate Student Opportunities** | STEP 6 — online earning, internships, digital products, AI tools, freelancing, remote jobs, each with skill level/income/time/platforms/resources |
-| **Detect Viral Trends** | STEP 7 — virality score, growth potential, competition score, revenue potential, plus the full STEP 8 scoring set |
+| **Generate Student Opportunities (Ollama)** | STEP 6 — online earning, internships, digital products, AI tools, freelancing, remote jobs, each with skill level/income/time/platforms/resources |
+| **Detect Viral Trends (Ollama)** | STEP 7 — virality score, growth potential, competition score, revenue potential, plus the full STEP 8 scoring set |
 | **Merge Completion → Trigger Daily Report & Sync** | Waits for all three branches, then hands off to workflow 04 |
 
 ### Workflow 04 — Daily Report & Multi-Destination Sync (Steps 9–10)
@@ -149,33 +163,46 @@ flowchart TD
 |---|---|
 | **13 parallel Postgres SELECTs** | Top 10 opportunities/products/freelancing niches/AI tools/startup ideas/trending topics/side hustles, highest-revenue idea, lowest-competition opportunity, and the latest blog/social/YouTube/newsletter rows |
 | **Merge All Report Data → Assemble Report Bundle** | Regroups the 13 branches back into named fields (Merge flattens; the Code node re-attributes by source node name) |
-| **Generate Recommended Action Plan (OpenAI)** | STEP 9 §10 — today/this-week/this-month guidance based on the highest-demand + lowest-competition + highest-revenue items |
+| **Generate Recommended Action Plan (Ollama)** | STEP 9 §10 — today/this-week/this-month guidance based on the highest-demand + lowest-competition + highest-revenue items |
 | **Build Daily Report** | Renders the full 10-section Markdown report and keeps the structured JSON alongside it |
 | **Save Daily Report (Postgres)** | System of record for the report |
 | **Write Markdown / JSON files** | STEP 10 file outputs |
-| **Sync to Google Sheets (×8 tabs)** | Trends, Digital Products, Freelancing, AI Business Ideas, Blogs, Social Media Posts, Newsletters, Daily Reports — one tab per output category |
+| **Sync to Google Sheets (×8 tabs)** | Trends, Digital Products, Freelancing, AI Business Ideas, Blogs, Social Media Posts, Newsletters, Daily Reports — one tab per output category, each branching directly off its source Postgres query so it gets real per-row data (not the aggregated bundle) |
 | **Sync to Airtable (×5 tables)** | Trends, Digital Products, Freelancing, AI Business Ideas, Daily Reports |
 | **Sync to Notion (×4 databases)** | Trends, Products, Content, Reports databases (configure the 4 database IDs in `.env`) |
 | **Notify Report Ready (Discord)** | Posts the day's headline numbers |
 
-### Workflow 05 — YouTube Shorts Pipeline (3×/day)
+### Workflow 05 — YouTube Shorts Pipeline (3×/day, $0 stack)
 
 | Node | Purpose |
 |---|---|
 | **Shorts Schedule Trigger (3x/day)** | Cron `0 9,14,19 * * *` — 3 firings/day, each publishing 1 Short |
-| **Get Next Candidate Topic** | Pulls the single highest-scoring `trend_topics` row still marked `candidate` — same pool workflow 01 fills at 06:00, so the 3 daily firings each consume a different topic |
-| **Mark Topic Used** | Flips that row to `status='used'` immediately, so the next firing (and workflow 02/03/04) don't reuse it |
-| **Generate Shorts Script (OpenAI)** | 30–55s script (110–150 words): title, hook, curiosity gap, explanation, CTA to "link in bio", keywords, hashtags |
-| **Fact Check → Confidence >= 90%?** | Independent OpenAI verification pass; below threshold routes to **Rewrite Script**, looped back into fact-check, capped at 3 attempts by `_rewrite_count`, then to a Discord "needs manual review" alert instead of an infinite loop |
-| **Generate Voiceover (ElevenLabs)** | TTS → MP3 binary |
-| **Generate Scene Prompts / Split Into Scenes** | Splits the script into sentences, builds one cinematic 9:16 prompt per sentence, loops each through video generation |
-| **AI Video Gen (Runway/Kling/Veo)** | Per-scene AI video clip; `continueOnFail` + **Fallback: Stock Footage (Pexels)** on failure/timeout, both normalized to the same shape before merging |
-| **Build Shotstack Timeline → Render → Poll → Automated Quality Check** | Assembles captions/transitions/zoom/audio, renders, polls until done, then checks duration (20–60s) |
-| **QC Passed?** | Failing QC alerts Discord and stops — never uploads a broken render |
-| **Generate Thumbnail (Bannerbear) + Generate SEO Metadata (OpenAI)** | Run in parallel, merged before upload |
-| **Download Rendered Video / Download Thumbnail Image** | Pulls the actual MP4/PNG bytes into binary (`data`/`thumbnail`) — Shotstack and Bannerbear return URLs, not files, so these HTTP nodes are required before the YouTube node can attach them |
-| **Upload to YouTube** | Uploads `private` with `publishAt` ~1h out (manual spot-check buffer before going public) |
-| **Set YouTube Thumbnail → Log Published Video (Postgres) → Notify Success (Discord)** | Attaches thumbnail, logs to `published_videos`, posts the live link |
+| **Get Next Candidate Topic / Mark Topic Used** | Pulls the highest-scoring `trend_topics` row still `candidate`, flips it to `used` so each of the 3 daily firings gets a different topic |
+| **Generate Shorts Script (Ollama)** | 6–10 short punchy sentences written for **reading**, not listening (each sentence becomes one on-screen caption card) |
+| **Fact Check → Confidence >= 90%?** | Independent Ollama verification pass; below threshold routes to **Rewrite Script**, looped back into fact-check, capped at 3 attempts by `_rewrite_count`, then to a Discord "needs manual review" alert |
+| **Generate Scene Prompts** | Splits the script into one item **per sentence** (this matters — see the note below), each carrying a short Pexels search query derived from the sentence's keywords and a fixed 4s duration |
+| **Split Into Scenes** | Loops one scene at a time (`splitInBatches`, batch size 1) |
+| **Search Pexels Stock Footage → Pexels Found Clip? → Search Pixabay Stock Footage (fallback)** | Pexels is the primary free video source; Pixabay is a second free source if Pexels comes up empty for that query |
+| **Download Scene Clip → Build Scene Files → Write Scene Clip/Caption to Disk** | Downloads the chosen clip, writes it plus a caption `.txt` file (used by FFmpeg's `drawtext=textfile=...` so the caption text never has to be shell-escaped) to the shared render volume |
+| **Build FFmpeg Process Command → Process Scene (FFmpeg)** | Scales/crops to 1080×1920, trims to 4s, burns in the caption, strips the clip's own audio |
+| **Loop Back (Next Scene)** | Returns to Split Into Scenes until every sentence has a processed clip |
+| **Build Concat List → Concatenate Scenes (FFmpeg)** | Fires once after the loop; joins all processed scene clips into one video with `ffmpeg -f concat` |
+| **Download Background Music → Write Music to Disk → Build Mix Command → Mix Background Music (FFmpeg)** | Loops/mixes a royalty-free track (`BG_MUSIC_URL`) at low volume under the video |
+| **Build Probe Command → Get Video Duration (ffprobe) → Automated Quality Check** | Reads the real rendered duration and checks it's in a sane Shorts range |
+| **QC Passed?** | Failing QC alerts Discord, cleans up, and stops — never uploads a broken render |
+| **Build Title Caption → Write Title File → Build Thumbnail Command → Extract Thumbnail (FFmpeg)** | Grabs a frame from the final video and burns the title on top as the thumbnail |
+| **Generate SEO Metadata (Ollama)** | Runs in parallel with the thumbnail extraction, merged before upload |
+| **Read Final Video File / Read Thumbnail File** | Loads the rendered files back into n8n as binary data for the YouTube nodes |
+| **Upload to YouTube → Set YouTube Thumbnail → Log Published Video (Postgres) → Cleanup Render Directory → Notify Success (Discord)** | Uploads `private` with `publishAt` ~1h out, attaches the thumbnail, logs to `published_videos`, deletes the run's temp files, posts the live link |
+
+> **Why "Generate Scene Prompts" returns one item per scene, not one item with a
+> `scenes` array**: n8n's `splitInBatches` loop node batches over its *input items*,
+> not over a nested array field. A single item containing `{scenes: [...]}` would
+> make the loop fire exactly once regardless of how many scenes are in that array —
+> it would never actually iterate per-scene. This was a real bug I caught and fixed
+> while building this workflow (it would have silently processed only the first
+> scene, or none, every single run). Every "one item per unit of work" node in this
+> pipeline follows the same rule.
 
 **Error handler workflow** (wired as the global `errorWorkflow` for all five
 pipelines): catches any node failure anywhere in the system, logs it to
@@ -183,26 +210,23 @@ pipelines): catches any node failure anywhere in the system, logs it to
 
 ---
 
-## 3. Required APIs & Free Alternatives
+## 3. Required Services — everything here is free
 
-| Function | Paid option | Free/self-hosted alternative |
+| Function | Service | Cost |
 |---|---|---|
-| Reddit trends | Reddit API (free with OAuth app) | No paid tier needed |
-| Product Hunt trends | Product Hunt GraphQL API (free developer token) | No paid tier needed |
-| Hacker News trends | — | Algolia HN Search API is free, no key required |
-| GitHub trending | GitHub REST API (free, higher rate limit with a token) | Unauthenticated calls work at a lower rate limit |
-| Google Trends | SerpAPI (~$50/mo) | `pytrends` unofficial library on a small Python microservice, called via HTTP Request node |
-| News | NewsAPI.org (free tier: 100 req/day) | GNews free tier, or RSS-to-JSON on Google News RSS |
-| YouTube trending | YouTube Data API v3 | Free — just quota-limited (10k units/day) |
-| Research + content generation | OpenAI GPT-4.1 | Local Llama 3.1 / Mistral via Ollama (lower quality, zero marginal cost) |
-| Database | Postgres/Supabase (this repo's default, free self-hosted or Supabase free tier) | — |
-| Secondary storage | Airtable (free tier: 1,000 records/base), Google Sheets (free), Notion (free) | All have generous free tiers already |
-| Alerts | Discord webhook (free), Gmail (free) | No paid alternative needed |
-| Voiceover | ElevenLabs (~$5–22/mo) | Piper/Coqui TTS self-hosted (free); Google Cloud TTS free tier (1M chars/mo) |
-| AI video generation | Runway/Kling/Veo API (usage-based, ~$0.05–0.50/sec) | Skip AI video and use Pexels/Pixabay stock footage as the *primary* source instead of fallback — near-free |
-| Video editing/render | Shotstack (~$0.40–1/render) | Self-hosted FFmpeg + Remotion (free, more setup) |
-| Thumbnail | Bannerbear (~$49/mo) | OpenAI image generation + a Code node compositing text via `node-canvas` |
-| YouTube upload/metadata | YouTube Data API v3 | Free — quota-limited (10k units/day; an upload costs ~1,600 units, so ~6 uploads/day max per project before requesting a quota increase) |
+| Reddit / Product Hunt / GitHub / Hacker News / News trends | Reddit API, Product Hunt GraphQL API, GitHub REST API, HN Algolia API, NewsAPI.org | Free (NewsAPI free tier: 100 req/day; others free/no key) |
+| YouTube trending + upload | YouTube Data API v3 | Free, quota-limited (10k units/day; an upload costs ~1,600 units) |
+| All content generation (research, blog, social, business ideas, Shorts scripts, fact-check, SEO) | Self-hosted Ollama (`llama3.1:8b` by default) | Free — your own compute, zero per-call cost |
+| Database | Self-hosted Postgres (via `docker-compose.yml`) | Free |
+| Secondary storage | Google Sheets, Airtable (free tier: 1,000 records/base), Notion | Free tiers |
+| Alerts | Discord webhook, Gmail | Free |
+| Shorts video source | Pexels + Pixabay stock video APIs | Free |
+| Shorts video rendering + thumbnail | Self-hosted FFmpeg (built into the n8n container) | Free |
+| Shorts audio | A royalty-free track you host somewhere (YouTube Audio Library / Pixabay Music / freesound.org) | Free |
+
+Nothing in this stack requires a credit card except, potentially, the YouTube OAuth
+setup itself (Google Cloud Console account — free, no billing required for this
+usage level) and whatever you're already paying to host the VM.
 
 ---
 
@@ -210,22 +234,23 @@ pipelines): catches any node failure anywhere in the system, logs it to
 
 Create these under **Settings → Credentials**:
 
-1. `OpenAI account` — API key
-2. `Reddit OAuth2` — client ID/secret, script-type app
-3. `Postgres account` — host/user/password (matches `docker/.env`)
-4. `Google Sheets account` (OAuth2)
-5. `Airtable account` (Personal Access Token)
-6. `Notion account` (internal integration token, shared with the 4 target databases)
-7. `Discord Webhook` — per-workflow webhook URL
-8. `Gmail account` (OAuth2) — for failure emails
-9. `YouTube OAuth2` — Google Cloud OAuth client with `youtube.upload`, `youtube.readonly`
+1. `Reddit OAuth2` — client ID/secret, script-type app
+2. `Postgres account` — host/user/password (matches `docker/.env`)
+3. `Google Sheets account` (OAuth2)
+4. `Airtable account` (Personal Access Token)
+5. `Notion account` (internal integration token, shared with the 4 target databases)
+6. `Discord Webhook` — per-workflow webhook URL
+7. `Gmail account` (OAuth2) — for failure emails
+8. `YouTube OAuth2` — Google Cloud OAuth client with `youtube.upload`, `youtube.readonly`
    scopes, consented by the channel's owning Google account (walkthrough: section 9)
 
-HTTP Request nodes calling Product Hunt, Hacker News, GitHub, SerpAPI, NewsAPI,
-ElevenLabs, Runway/Kling/Veo, Pexels, Shotstack, and Bannerbear use header/query auth
-pulled from environment variables (see `docker/.env.example`) rather than n8n
-credential objects, since these are simple API-key/token services — convert any of
-them to a **Generic Header Auth** credential if you prefer not to store keys in `.env`.
+**Ollama needs no n8n credential at all** — it's called via plain HTTP Request nodes
+against `OLLAMA_BASE_URL` (the `ollama` service on the Docker network), no auth.
+HTTP Request nodes calling Product Hunt, Hacker News, GitHub, NewsAPI, Pexels, and
+Pixabay use header/query auth pulled from environment variables (see
+`docker/.env.example`) rather than n8n credential objects, since these are simple
+API-key/token services — convert any of them to a **Generic Header Auth** credential
+if you prefer not to store keys in `.env`.
 
 ---
 
@@ -250,11 +275,12 @@ cp docker/.env.example docker/.env
 │   ├── 02-content-generation-workflow.json       # Step 4
 │   ├── 03-business-student-viral-workflow.json   # Steps 5-7
 │   ├── 04-daily-report-workflow.json             # Steps 9-10
-│   └── 05-youtube-shorts-pipeline.json           # 3 Shorts/day, sourced from Step 1's trend pool
+│   └── 05-youtube-shorts-pipeline.json           # 3 Shorts/day, $0 stack
 ├── db/
 │   └── schema.sql                                 # Postgres/Supabase schema
 ├── docker/
-│   ├── docker-compose.yml
+│   ├── docker-compose.yml                         # Postgres + Ollama + n8n (built w/ FFmpeg)
+│   ├── Dockerfile.n8n                             # n8n image + ffmpeg + fonts
 │   └── .env.example
 └── README.md                                      # this file
 ```
@@ -263,11 +289,12 @@ cp docker/.env.example docker/.env
 
 ## 7. Error Handling & Retry Logic
 
-- **Per-node retries**: every external API call (`httpRequest`, `openAi`, `postgres`)
-  has `retryOnFail: true` with 2–3 attempts and backoff (2–5s).
-- **continueOnFail** on trend-source HTTP calls and secondary-storage sync nodes
-  (Sheets/Airtable/Notion) means one dead API degrades that one destination instead
-  of halting the run — Postgres remains the system of record regardless.
+- **Per-node retries**: every external API call (`httpRequest`, `postgres`,
+  `executeCommand`) has `retryOnFail: true` with 2–3 attempts and backoff (2–5s).
+- **continueOnFail** on trend-source HTTP calls, stock-footage searches, and
+  secondary-storage sync nodes (Sheets/Airtable/Notion) means one dead source
+  degrades that one thing instead of halting the run — Postgres remains the system
+  of record regardless.
 - **Idea-count guard**: `Parse & Validate 10 Ideas` throws if the model returns fewer
   than 10 AI business ideas, routing the run to the Error Handler instead of silently
   under-delivering STEP 5's daily quota.
@@ -280,39 +307,53 @@ cp docker/.env.example docker/.env
 - **Shorts fact-check loop**: capped at 3 rewrite attempts (`_rewrite_count`), then
   routes to a Discord "needs manual review" alert instead of publishing an
   unverified script or looping forever.
-- **Shorts render polling**: `Poll Render Status` loops on `Wait for Render` until
-  Shotstack reports `done`, with a max-tries cap (15 × 15s) to prevent infinite polling.
-- **Shorts QC gate**: failed quality checks (duration out of the 20–60s Shorts range)
-  never reach the YouTube upload step — they route to a Discord alert instead.
+- **Shorts stock-footage fallback**: Pexels is tried first; if a scene's search comes
+  up empty, Pixabay is tried before that scene fails outright.
+- **Shorts QC gate**: failed quality checks (duration outside a sane Shorts range,
+  read from the actual rendered file via `ffprobe`, not assumed) never reach the
+  YouTube upload step — they route to a Discord alert and a cleanup step instead.
+- **Render directory cleanup**: every run (success or QC failure) deletes its own
+  `RENDER_DIR/<run_id>` folder at the end, so downloaded clips/audio/intermediate
+  files don't accumulate on disk across 3 runs/day indefinitely. The cleanup command
+  refuses to run if the computed path looks unsafe (empty, `/`, or suspiciously
+  short) rather than silently doing nothing or, worse, deleting the wrong thing.
 
 ---
 
 ## 8. Deployment Guide (Self-Hosted, Docker)
 
-1. **Provision a VM** (2 vCPU / 4GB RAM minimum).
+1. **Provision a VM** (4 vCPU / 8GB RAM minimum — more than the pure-cloud-API
+   version needed, because this VM now also runs the Ollama LLM and does FFmpeg
+   video encoding locally; see section 9a for sizing guidance).
 2. **Install Docker & Docker Compose.**
 3. Clone/copy this project folder to the server.
 4. `cd docker && cp .env.example .env` and fill in all credentials/keys.
-5. `docker compose up -d` — starts Postgres + n8n.
-6. Open `http://<server-ip>:5678`, log in with your basic-auth credentials.
-7. **Import workflows** in this order: Error Handler → 01 Trend Research → 02 Content
+5. `docker compose up -d` — builds the n8n image (with FFmpeg baked in) and starts
+   Postgres + Ollama + n8n. The first build takes a few minutes.
+6. **Pull an Ollama model** (one-time, several GB download):
+   `docker compose exec ollama ollama pull llama3.1:8b`
+   (match whatever you set `OLLAMA_MODEL` to in `.env`).
+7. Open `http://<server-ip>:5678`, log in with your basic-auth credentials.
+8. **Import workflows** in this order: Error Handler → 01 Trend Research → 02 Content
    Generation → 03 Business/Student/Viral → 04 Daily Report → 05 YouTube Shorts
    (`Workflows → Import from File`, pick each JSON from `workflows/`).
-8. Set every workflow's error workflow to the imported Error Handler
+9. Set every workflow's error workflow to the imported Error Handler
    (`Workflow Settings → Error Workflow`) — this replaces the placeholder
    `error-handler-workflow-id` string baked into each JSON file.
-9. Update the three `Execute Workflow` nodes (in WF01 → WF02/WF03, and WF03 → WF04)
-   to point at the actual imported workflow IDs — n8n reassigns IDs on import.
-   Workflow 05 doesn't need this: it reads directly from `trend_topics` on its own
-   schedule rather than being triggered by another workflow.
-10. Configure the 9 credential types listed in section 4 (including `YouTube OAuth2`
+10. Update the three `Execute Workflow` nodes (in WF01 → WF02/WF03, and WF03 → WF04)
+    to point at the actual imported workflow IDs — n8n reassigns IDs on import.
+    Workflow 05 doesn't need this: it reads directly from `trend_topics` on its own
+    schedule rather than being triggered by another workflow.
+11. Configure the 8 credential types listed in section 4 (including `YouTube OAuth2`
     — see section 9 if you haven't set this up before), and the 4 Notion database
-    IDs / Google Sheet ID / Airtable base ID / `YT_CHANNEL_ID` in `.env`.
-11. Run workflow 01 once manually to verify each branch before activating the
+    IDs / Google Sheet ID / Airtable base ID / `YT_CHANNEL_ID` / `PEXELS_API_KEY` /
+    `BG_MUSIC_URL` in `.env`.
+12. Run workflow 01 once manually to verify each branch before activating the
     schedule trigger; then run workflow 05 once manually against a leftover
     `candidate` topic to verify the full render → upload chain before activating
-    its schedule.
-12. Put a reverse proxy (Caddy/Nginx) with TLS in front of port 5678 for anything
+    its schedule. **This is the step to not skip** — see section 9a for why the
+    FFmpeg pipeline specifically deserves a watched first run.
+13. Put a reverse proxy (Caddy/Nginx) with TLS in front of port 5678 for anything
     beyond local testing — see security notes below.
 
 ---
@@ -320,7 +361,7 @@ cp docker/.env.example docker/.env
 ## 9. YouTube OAuth2 Setup (Google Cloud Console)
 
 Workflow 05 uploads real videos to your channel, which requires a Google Cloud
-OAuth client — there's no API-key shortcut for this. Walkthrough:
+OAuth client — there's no API-key shortcut for this, and it's free. Walkthrough:
 
 1. **Create/select a Google Cloud project**: [console.cloud.google.com](https://console.cloud.google.com) →
    create a new project (or reuse one) dedicated to this automation.
@@ -351,38 +392,56 @@ OAuth client — there's no API-key shortcut for this. Walkthrough:
 7. **Find your channel ID** for `YT_CHANNEL_ID` in `.env`: YouTube Studio →
    Settings → Channel → Advanced settings, or `https://www.youtube.com/account_advanced`.
 
+### 9a. Ollama & FFmpeg — hardware sizing and confidence notes
+
+**Ollama sizing**: `llama3.1:8b` (the default in `.env.example`) needs roughly 8GB of
+RAM to run comfortably on CPU alone, and will be slow (tens of seconds to a couple
+minutes per call) without a GPU. With ~20+ LLM calls/day across all 5 workflows, a
+CPU-only 8GB-RAM host will work but each daily run will take a while — that's fine
+for a scheduled batch job, just don't expect real-time responsiveness. If your host
+is smaller, swap `OLLAMA_MODEL` to something lighter (`qwen2.5:3b`, `phi3:mini`) at
+some cost to JSON-schema adherence quality; if you have a GPU, uncomment the GPU
+block in `docker-compose.yml` for a large speedup.
+
+**Font path caveat**: the FFmpeg caption/thumbnail commands reference
+`RENDER_FONT_PATH` (default `/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf`, matching
+Alpine Linux's `font-dejavu` package layout, which is what `Dockerfile.n8n` installs).
+If a scene or thumbnail command fails with a "cannot find font" error, run
+`docker compose exec n8n fc-list | grep -i dejavu` to find the actual installed path
+on your build and update `RENDER_FONT_PATH` in `.env` — no workflow JSON edits
+needed, since every FFmpeg command reads this from the environment.
+
+**Honesty about testing depth**: every Code node's JavaScript logic in this repo
+(scoring, parsing, FFmpeg command construction, etc.) was unit-tested by extracting
+it and running it under Node.js with mocked inputs matching each node's real
+upstream data shape — that caught several real bugs before they shipped, including
+the `splitInBatches` array-vs-items issue described in section 2. What that testing
+**cannot** verify is whether the exact FFmpeg command syntax runs correctly against
+a real video file, since no FFmpeg binary was available in the environment this was
+built in. The commands use well-established, standard FFmpeg patterns (concat
+demuxer, `drawtext` with `textfile=` to avoid caption-text escaping issues, `amix`
+for the music bed), but **this is the one part of the whole system you should watch
+run at least once manually** (step 12 in the deployment guide) before trusting the
+3×/day schedule unattended. If a specific FFmpeg command fails, the error will be in
+that step's Execute Command node output in n8n's execution log — the command string
+itself is always visible there for debugging.
+
 ---
 
-## 10. API Cost Estimation (per daily run, rough)
+## 10. Cost: $0 in ongoing API spend
 
-| Stage | Cost |
-|---|---|
-| Trend APIs (SerpAPI/NewsAPI, amortized) | ~$0.02–0.08 |
-| Digital product + freelancing research (2 GPT-4.1 calls) | ~$0.03–0.08 |
-| Blog + social + YouTube + newsletter (4 GPT-4.1 calls, one ~1500-word) | ~$0.08–0.20 |
-| 10 AI business ideas + student opportunities + viral detection (3 GPT-4.1 calls) | ~$0.05–0.12 |
-| Recommended action plan (1 short GPT-4.1 call) | ~$0.01 |
-| **Total per day** | **~$0.20–0.50** |
+There is no per-call, per-video, or per-day API cost table for this stack, because
+there's nothing metered left in it — Ollama replaces every OpenAI call, Pexels/Pixabay
+replace paid AI video generation, self-hosted FFmpeg replaces Shotstack and
+Bannerbear, and every storage/notification destination is a free tier. The only
+number to actually budget is **your VM's hosting cost** (a 4vCPU/8GB box capable of
+running Ollama reasonably is typically $24–48/mo on DigitalOcean/Hetzner/similar —
+cheaper if you already have a machine sitting around, or run it locally).
 
-At 1 run/day this is roughly **$6–15/month** in OpenAI spend, plus free-tier usage
-of every other API in section 3. Swap `OPENAI_MODEL`/`OPENAI_RESEARCH_MODEL` to a
-smaller model or a local Ollama model to push this toward zero.
-
-### Per-video cost (workflow 05, AI video generation mode)
-
-| Stage | Cost |
-|---|---|
-| Script + fact-check + SEO metadata (up to 4 GPT-4.1 calls incl. one possible rewrite) | ~$0.02–0.06 |
-| ElevenLabs voiceover (~130 words) | ~$0.02–0.05 |
-| AI video gen (5–8 scenes × ~5s clips, Runway/Kling/Veo) | ~$1.50–4.00 — **this dominates the cost** |
-| Shotstack render | ~$0.40–1.00 |
-| Bannerbear thumbnail | ~$0.05 |
-| **Total per video** | **~$2–5.20** |
-
-At 3 videos/day that's roughly **$180–470/month**. Since you chose full AI video
-generation over stock footage, this is the real number to budget for — see section
-12 for how to cut it by switching individual topics to the stock-footage fallback
-path once they're proven low-value, without touching the workflow's structure.
+If you ever want to reintroduce a paid service for quality (e.g., OpenAI for
+sharper JSON-schema adherence, or ElevenLabs for real narration), every place that
+would need to change is isolated to a single node type per call site — see section
+12 for exactly what to swap.
 
 ---
 
@@ -390,9 +449,9 @@ path once they're proven low-value, without touching the workflow's structure.
 
 - Never commit `.env` — it holds every API key. Add it to `.gitignore`.
 - Use n8n's built-in credential store (encrypted at rest via `N8N_ENCRYPTION_KEY`)
-  instead of raw env vars wherever a credential type exists (OpenAI, Postgres,
-  Google Sheets, Airtable, Notion, Gmail) — reserve `.env` for simple API-key
-  services (Product Hunt, GitHub, SerpAPI, NewsAPI).
+  instead of raw env vars wherever a credential type exists (Postgres, Google
+  Sheets, Airtable, Notion, Gmail, YouTube) — reserve `.env` for simple API-key
+  services (Product Hunt, GitHub, NewsAPI, Pexels, Pixabay) and for `OLLAMA_BASE_URL`.
 - Put n8n behind a reverse proxy with TLS and keep `N8N_BASIC_AUTH_ACTIVE=true`, or
   better, put it behind SSO/VPN if self-hosting long-term.
 - Scope every OAuth credential (Google Sheets, Gmail, **YouTube**) to only the
@@ -406,13 +465,22 @@ path once they're proven low-value, without touching the workflow's structure.
   don't change this to `public` immediate-publish until you've watched at least a
   few days of unattended runs; a bad script or fact-check false-pass otherwise goes
   straight to your live channel.
+- **`Execute Command` node exposure**: workflow 05 uses n8n's Execute Command node
+  to run FFmpeg. Every command it runs is built in a preceding Code node from only
+  numeric/sanitized path components (`run_id` is regex-stripped to
+  `[a-zA-Z0-9._-]` before ever touching a shell string; scene index is validated as
+  an integer in range) — LLM-generated text (captions, titles) is always written to
+  a file first and referenced via FFmpeg's `textfile=` option rather than
+  interpolated directly into a shell/filter string. If you extend this workflow,
+  keep that discipline: never put raw LLM output directly into an Execute Command
+  string.
 
 ---
 
 ## 12. Optimization Suggestions
 
 - **Cache trend results** for a few hours (Code node + a small KV table) if you ever
-  move to multiple runs/day, to avoid redundant API calls.
+  move to multiple research runs/day, to avoid redundant API calls.
 - **Feed `daily_reports` back into `Categorize & Score Topics`** as a bias multiplier
   for categories/sources that historically scored well, closing the feedback loop
   STEP 11-style optimization implies.
@@ -422,9 +490,24 @@ path once they're proven low-value, without touching the workflow's structure.
   a config flag per destination if you don't use all three simultaneously — every
   sync node is already wired with `continueOnFail`, so disabling unused credentials
   is safe without editing connections.
-- **Prefer a single richer OpenAI call over many small ones** where the schema allows
+- **Prefer a single richer LLM call over many small ones** where the schema allows
   it (already done for short-form social content and for freelancing/product
-  research) to reduce latency and per-call overhead.
+  research) to reduce latency and per-call overhead — this matters more with a
+  slower self-hosted model than it did with a cloud API.
+- **Watch YouTube Data API quota**: each upload costs ~1,600 units against the
+  10,000/day free quota; at 3 uploads/day plus metadata calls this workflow makes,
+  you have headroom, but request a quota increase in Google Cloud Console before
+  adding more channels or more daily uploads.
+- **If you later want to spend money for quality**, the swap points are isolated:
+  replace any `Ollama` HTTP Request node with an `n8n-nodes-base.openAi` node
+  (same downstream Code nodes work unchanged — they already read
+  `message.content`/`content` defensively); add ElevenLabs back as a TTS step
+  before "Generate Scene Prompts" and switch the FFmpeg scene command from
+  fixed-4s-per-caption to duration-matched-to-narration; or swap the Pexels/Pixabay
+  search for a paid AI video generation call feeding the same "Build Scene Files"
+  step, same normalized `{index, text, video_url}` shape.
+- **GPU for Ollama** cuts LLM latency dramatically if you have one available —
+  uncomment the GPU block in `docker-compose.yml`'s `ollama` service.
 
 ---
 
@@ -454,12 +537,3 @@ text vs. multi-select) — `*_score` and `*_usd` fields should be Number, `keywo
 Long Text (Airtable's API will reject a plain array against a Single Line Text
 field), and `faqs` (an array of `{question, answer}` objects) should be Long Text —
 Airtable/Notion have no native nested-object field type.
-- **Bias workflow 05 toward stock footage for lower-scored topics**: change the
-  `AI Video Gen (Runway/Kling/Veo)` node to `continueOnFail`-skip straight to Pexels
-  when `overall_score` is below a threshold, reserving the ~$2–5/video AI generation
-  spend for only your highest-scoring daily topic — this alone can cut the section-10
-  monthly estimate by roughly two-thirds without any structural workflow change.
-- **Watch YouTube Data API quota**: each upload costs ~1,600 units against the
-  10,000/day free quota; at 3 uploads/day plus the analytics/metadata calls this
-  workflow makes, you have headroom, but request a quota increase in Google Cloud
-  Console before adding more channels or more daily uploads.
