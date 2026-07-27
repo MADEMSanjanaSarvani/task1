@@ -7,7 +7,10 @@
       "name": "Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
-      "position": [ -600, 0 ]
+      "position": [
+        -600,
+        0
+      ]
     },
     {
       "parameters": {
@@ -17,18 +20,27 @@
       "name": "Extract Error Details",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -380, 0 ]
+      "position": [
+        -380,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "failed_runs" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "failed_runs"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "workflow_name": "={{$json.workflow}}", "failed_node": "={{$json.failed_node}}",
-            "error_message": "={{$json.error_message}}", "payload": "={{$json.payload}}"
+            "workflow_name": "={{$json.workflow}}",
+            "failed_node": "={{$json.failed_node}}",
+            "error_message": "={{$json.error_message}}",
+            "payload": "={{$json.payload}}"
           }
         }
       },
@@ -36,19 +48,35 @@
       "name": "Log Error to Postgres",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -160, 0 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+      "position": [
+        -160,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      }
     },
     {
       "parameters": {
-        "content": "🔴 Workflow **{{$json.workflow}}** failed at node **{{$json.failed_node}}**:\n```{{$json.error_message}}```"
+        "content": "\ud83d\udd34 Workflow **{{$json.workflow}}** failed at node **{{$json.failed_node}}**:\n```{{$json.error_message}}```"
       },
       "id": "discord-alert",
       "name": "Send Discord Alert",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
-      "position": [ 60, -80 ],
-      "credentials": { "discordWebhookApi": { "id": "discord-creds", "name": "Discord Webhook" } }
+      "position": [
+        60,
+        -80
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "discord-creds",
+          "name": "Discord Webhook"
+        }
+      }
     },
     {
       "parameters": {
@@ -61,19 +89,63 @@
       "name": "Send Gmail Alert",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [ 60, 80 ],
-      "credentials": { "gmailOAuth2": { "id": "gmail-creds", "name": "Gmail account" } }
+      "position": [
+        60,
+        80
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-creds",
+          "name": "Gmail account"
+        }
+      }
     }
   ],
   "connections": {
-    "Error Trigger": { "main": [ [ { "node": "Extract Error Details", "type": "main", "index": 0 } ] ] },
-    "Extract Error Details": { "main": [ [ { "node": "Log Error to Postgres", "type": "main", "index": 0 } ] ] },
-    "Log Error to Postgres": { "main": [
-      [ { "node": "Send Discord Alert", "type": "main", "index": 0 } ],
-      [ { "node": "Send Gmail Alert", "type": "main", "index": 0 } ]
-    ] }
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Error Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Error Details": {
+      "main": [
+        [
+          {
+            "node": "Log Error to Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error to Postgres": {
+      "main": [
+        [
+          {
+            "node": "Send Discord Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Gmail Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "pinData": {},
   "versionId": "1"
 }

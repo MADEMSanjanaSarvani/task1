@@ -3,20 +3,40 @@
   "nodes": [
     {
       "parameters": {
-        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 6 * * *" } ] }
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
       },
       "id": "trigger-schedule",
       "name": "Daily Schedule Trigger (06:00)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [ -2400, 0 ]
+      "position": [
+        -2400,
+        0
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "1", "name": "run_id", "value": "={{$now.format('yyyyLLdd')}}-{{$now.toMillis()}}", "type": "string" },
-            { "id": "2", "name": "run_date", "value": "={{$now.toFormat('yyyy-LL-dd')}}", "type": "string" }
+            {
+              "id": "1",
+              "name": "run_id",
+              "value": "={{$now.format('yyyyLLdd')}}-{{$now.toMillis()}}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "run_date",
+              "value": "={{$now.toFormat('yyyy-LL-dd')}}",
+              "type": "string"
+            }
           ]
         }
       },
@@ -24,26 +44,46 @@
       "name": "Run Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [ -2180, 0 ]
+      "position": [
+        -2180,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "https://oauth.reddit.com/r/Entrepreneur+freelance+SideProject+juststart+passive_income+SaaS+digitalnomad+WorkOnline/hot",
         "sendQuery": true,
-        "queryParameters": { "parameters": [ { "name": "limit", "value": "40" } ] },
-        "options": { "timeout": 15000 }
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "40"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-reddit",
       "name": "Fetch Reddit Trends",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -1960, -480 ],
+      "position": [
+        -1960,
+        -480
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
-      "credentials": { "oAuth2Api": { "id": "reddit-oauth", "name": "Reddit OAuth2" } }
+      "credentials": {
+        "oAuth2Api": {
+          "id": "reddit-oauth",
+          "name": "Reddit OAuth2"
+        }
+      }
     },
     {
       "parameters": {
@@ -52,20 +92,31 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{$env.PRODUCTHUNT_TOKEN}}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.PRODUCTHUNT_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ query: \"{ posts(first: 30, order: VOTES) { edges { node { name tagline votesCount topics { edges { node { name } } } } } } }\" }) }}",
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-producthunt",
       "name": "Fetch Product Hunt Trends",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -1960, -320 ],
+      "position": [
+        -1960,
+        -320
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
@@ -78,17 +129,28 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "tags", "value": "front_page" },
-            { "name": "numericFilters", "value": "created_at_i>{{Math.floor(Date.now()/1000)-7*86400}}" }
+            {
+              "name": "tags",
+              "value": "front_page"
+            },
+            {
+              "name": "numericFilters",
+              "value": "created_at_i>{{Math.floor(Date.now()/1000)-7*86400}}"
+            }
           ]
         },
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-hackernews",
       "name": "Fetch Hacker News Trends",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -1960, -160 ],
+      "position": [
+        -1960,
+        -160
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
@@ -99,23 +161,47 @@
         "method": "GET",
         "url": "https://api.github.com/search/repositories",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Bearer {{$env.GITHUB_TOKEN}}" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.GITHUB_TOKEN}}"
+            }
+          ]
+        },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "q", "value": "created:>{{$now.minus({days:7}).toFormat('yyyy-LL-dd')}} stars:>50" },
-            { "name": "sort", "value": "stars" },
-            { "name": "order", "value": "desc" },
-            { "name": "per_page", "value": "30" }
+            {
+              "name": "q",
+              "value": "created:>{{$now.minus({days:7}).toFormat('yyyy-LL-dd')}} stars:>50"
+            },
+            {
+              "name": "sort",
+              "value": "stars"
+            },
+            {
+              "name": "order",
+              "value": "desc"
+            },
+            {
+              "name": "per_page",
+              "value": "30"
+            }
           ]
         },
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-github-trending",
       "name": "Fetch GitHub Trending",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -1960, 0 ],
+      "position": [
+        -1960,
+        0
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
@@ -128,19 +214,36 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "engine", "value": "google_trends" },
-            { "name": "q", "value": "AI tools,side hustle,passive income,SaaS ideas,freelancing,no-code tools" },
-            { "name": "data_type", "value": "RELATED_QUERIES" },
-            { "name": "api_key", "value": "={{$env.SERPAPI_KEY}}" }
+            {
+              "name": "engine",
+              "value": "google_trends"
+            },
+            {
+              "name": "q",
+              "value": "AI tools,side hustle,passive income,SaaS ideas,freelancing,no-code tools"
+            },
+            {
+              "name": "data_type",
+              "value": "RELATED_QUERIES"
+            },
+            {
+              "name": "api_key",
+              "value": "={{$env.SERPAPI_KEY}}"
+            }
           ]
         },
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-google-trends",
       "name": "Fetch Google Trends",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -1960, 160 ],
+      "position": [
+        -1960,
+        160
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
@@ -153,19 +256,36 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "q", "value": "\"AI tools\" OR \"side hustle\" OR \"digital product\" OR \"SaaS\" OR \"remote jobs\" OR \"startup idea\" OR \"passive income\"" },
-            { "name": "sortBy", "value": "publishedAt" },
-            { "name": "pageSize", "value": "30" },
-            { "name": "apiKey", "value": "={{$env.NEWSAPI_KEY}}" }
+            {
+              "name": "q",
+              "value": "\"AI tools\" OR \"side hustle\" OR \"digital product\" OR \"SaaS\" OR \"remote jobs\" OR \"startup idea\" OR \"passive income\""
+            },
+            {
+              "name": "sortBy",
+              "value": "publishedAt"
+            },
+            {
+              "name": "pageSize",
+              "value": "30"
+            },
+            {
+              "name": "apiKey",
+              "value": "={{$env.NEWSAPI_KEY}}"
+            }
           ]
         },
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-news",
       "name": "Fetch Tech/Startup News",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -1960, 320 ],
+      "position": [
+        -1960,
+        320
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
@@ -178,57 +298,100 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "part", "value": "snippet,statistics" },
-            { "name": "chart", "value": "mostPopular" },
-            { "name": "videoCategoryId", "value": "28" },
-            { "name": "maxResults", "value": "25" },
-            { "name": "key", "value": "={{$env.YOUTUBE_API_KEY}}" }
+            {
+              "name": "part",
+              "value": "snippet,statistics"
+            },
+            {
+              "name": "chart",
+              "value": "mostPopular"
+            },
+            {
+              "name": "videoCategoryId",
+              "value": "28"
+            },
+            {
+              "name": "maxResults",
+              "value": "25"
+            },
+            {
+              "name": "key",
+              "value": "={{$env.YOUTUBE_API_KEY}}"
+            }
           ]
         },
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-yt-trending",
       "name": "Fetch YouTube Trending (Tech)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -1960, 480 ],
+      "position": [
+        -1960,
+        480
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
     },
     {
-      "parameters": { "mode": "append", "numberInputs": 7, "options": {} },
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 7,
+        "options": {}
+      },
       "id": "merge-sources",
       "name": "Merge All Sources",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.1,
-      "position": [ -1700, 0 ]
+      "position": [
+        -1700,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// STEP 1 + STEP 8: normalize every source's raw items into a common topic shape,\n// categorize into the 21 opportunity categories, tag a recency window, and score\n// each topic on all 8 required dimensions (0-100).\nconst runId = $('Run Config').first().json.run_id;\nconst allInputs = $input.all();\nconst raw = [];\n\nfor (const item of allInputs) {\n  const d = item.json;\n  if (d.data && d.data.children) { // reddit\n    for (const p of d.data.children) raw.push({ title: p.data.title, source: 'reddit', window: '24h', signal: p.data.score + p.data.num_comments });\n  }\n  if (d.data && d.data.posts && d.data.posts.edges) { // product hunt\n    for (const p of d.data.posts.edges) raw.push({ title: `${p.node.name} — ${p.node.tagline}`, source: 'product_hunt', window: '24h', signal: p.node.votesCount });\n  }\n  if (d.hits) { // hacker news algolia\n    for (const h of d.hits) raw.push({ title: h.title, source: 'hacker_news', window: '7d', signal: h.points || 0 });\n  }\n  if (d.items && Array.isArray(d.items) && d.items[0] && d.items[0].full_name) { // github search repos\n    for (const r of d.items) raw.push({ title: `${r.full_name} — ${r.description || ''}`.slice(0, 200), source: 'github_trending', window: '7d', signal: r.stargazers_count });\n  }\n  if (d.related_queries) { // serpapi google trends\n    for (const q of (d.related_queries.rising || []).concat(d.related_queries.top || [])) raw.push({ title: q.query, source: 'google_trends', window: '30d', signal: q.extracted_value || q.value || 50 });\n  }\n  if (d.articles) { // newsapi\n    for (const a of d.articles) raw.push({ title: a.title, source: 'news', window: '30d', signal: 40 });\n  }\n  if (d.items && Array.isArray(d.items) && d.items[0] && d.items[0].snippet) { // youtube\n    for (const v of d.items) raw.push({ title: v.snippet.title, source: 'youtube', window: '24h', signal: v.statistics ? Number(v.statistics.viewCount) / 50000 : 20 });\n  }\n}\n\nconst CATEGORY_KEYWORDS = {\n  'Freelancing': /freelanc|upwork|fiverr|client work|gig/i,\n  'Digital Products': /template|ebook|notion|canva|prompt pack|digital product|pdf guide/i,\n  'AI Tools': /\\bai\\b|gpt|llm|chatbot|copilot|midjourney/i,\n  'Side Hustles': /side hustle|side gig|extra income/i,\n  'Passive Income Ideas': /passive income|dividend|royalt/i,\n  'Online Business Ideas': /online business|ecommerce|dropship/i,\n  'Remote Jobs': /remote job|work from home|wfh/i,\n  'Tech Trends': /tech trend|technology|developer|programming/i,\n  'Productivity Tools': /productivity|notion|todo|time management/i,\n  'Startup Ideas': /startup|founder|venture|y combinator/i,\n  'SaaS': /saas|subscription software|micro-saas/i,\n  'Digital Marketing': /marketing|seo|content marketing|ads|growth hack/i,\n  'No-Code Tools': /no.?code|low.?code|bubble|webflow|zapier/i,\n  'AI Automation': /automation|workflow|n8n|zapier|make\\.com/i,\n  'Mobile Apps': /mobile app|ios app|android app|app store/i,\n  'Website Ideas': /website|landing page|web design/i,\n  'Student Income Opportunities': /student|college|university|intern/i,\n  'Career Growth': /career|resume|job interview|promotion/i,\n  'Business Trends': /business trend|market trend|industry/i,\n  'Government Tech Trends': /government|gov.?tech|policy|regulation/i,\n  'Viral Internet Trends': /viral|trending now|meme|going viral/i\n};\n\nfunction categorize(title) {\n  for (const [cat, re] of Object.entries(CATEGORY_KEYWORDS)) if (re.test(title)) return cat;\n  return 'Tech Trends';\n}\n\nconst SOURCE_WEIGHT = { reddit: 1.1, product_hunt: 1.3, hacker_news: 1.15, github_trending: 1.1, google_trends: 1.3, news: 0.9, youtube: 1.15 };\nconst AUTOMATION_BOOST = /AI Tools|No-Code Tools|AI Automation|SaaS|Productivity Tools/;\nconst VIRAL_BOOST = /Viral Internet Trends|Side Hustles|Passive Income Ideas/;\n\nconst seen = new Map();\nfor (const t of raw) {\n  if (!t.title || t.title.length < 6) continue;\n  const key = t.title.toLowerCase().trim().slice(0, 80);\n  const category = categorize(t.title);\n  const weight = SOURCE_WEIGHT[t.source] || 1;\n  const demand = Math.min(100, Math.round((Math.log10((t.signal || 1) + 1) * 28) * weight));\n  const competition = Math.min(100, Math.max(10, Math.round(t.title.length > 70 ? 35 : 65)));\n  const seo = Math.min(100, Math.round(demand * 0.6 + (100 - competition) * 0.4));\n  const viral = Math.min(100, Math.round(demand * (VIRAL_BOOST.test(category) ? 1.25 : 0.9)));\n  const automation = Math.min(100, Math.round(AUTOMATION_BOOST.test(category) ? 75 + Math.random() * 20 : 35 + Math.random() * 20));\n  const difficulty = Math.min(100, Math.max(10, 100 - Math.round(demand * 0.3 + competition * 0.2)));\n  const profitability = Math.min(100, Math.round(demand * 0.5 + (100 - competition) * 0.3 + seo * 0.2));\n  const longterm = Math.min(100, Math.round((demand + (100 - competition) + automation) / 3));\n  const overall = Math.round(demand * 0.22 + profitability * 0.2 + (100 - difficulty) * 0.1 + (100 - competition) * 0.15 + seo * 0.13 + viral * 0.1 + automation * 0.06 + longterm * 0.04);\n\n  const row = {\n    run_id: runId, title: t.title.slice(0, 250), category, source: t.source, window: t.window,\n    demand_score: demand, profitability_score: profitability, difficulty_score: difficulty,\n    competition_score: competition, seo_score: seo, viral_score: viral, automation_score: automation,\n    longterm_score: longterm, overall_score: overall, status: 'candidate'\n  };\n  if (!seen.has(key) || seen.get(key).overall_score < overall) seen.set(key, row);\n}\n\nconst ranked = Array.from(seen.values()).sort((a, b) => b.overall_score - a.overall_score).slice(0, 60);\nreturn ranked.map(r => ({ json: r }));\n"
+        "jsCode": "// STEP 1 + STEP 8: normalize every source's raw items into a common topic shape,\n// categorize into the 21 opportunity categories, tag a recency window, and score\n// each topic on all 8 required dimensions (0-100).\nconst runId = $('Run Config').first().json.run_id;\nconst allInputs = $input.all();\nconst raw = [];\n\nfor (const item of allInputs) {\n  const d = item.json;\n  if (d.data && d.data.children) { // reddit\n    for (const p of d.data.children) raw.push({ title: p.data.title, source: 'reddit', window: '24h', signal: p.data.score + p.data.num_comments });\n  }\n  if (d.data && d.data.posts && d.data.posts.edges) { // product hunt\n    for (const p of d.data.posts.edges) raw.push({ title: `${p.node.name} \u2014 ${p.node.tagline}`, source: 'product_hunt', window: '24h', signal: p.node.votesCount });\n  }\n  if (d.hits) { // hacker news algolia\n    for (const h of d.hits) raw.push({ title: h.title, source: 'hacker_news', window: '7d', signal: h.points || 0 });\n  }\n  if (d.items && Array.isArray(d.items) && d.items[0] && d.items[0].full_name) { // github search repos\n    for (const r of d.items) raw.push({ title: `${r.full_name} \u2014 ${r.description || ''}`.slice(0, 200), source: 'github_trending', window: '7d', signal: r.stargazers_count });\n  }\n  if (d.related_queries) { // serpapi google trends\n    for (const q of (d.related_queries.rising || []).concat(d.related_queries.top || [])) raw.push({ title: q.query, source: 'google_trends', window: '30d', signal: q.extracted_value || q.value || 50 });\n  }\n  if (d.articles) { // newsapi\n    for (const a of d.articles) raw.push({ title: a.title, source: 'news', window: '30d', signal: 40 });\n  }\n  if (d.items && Array.isArray(d.items) && d.items[0] && d.items[0].snippet) { // youtube\n    for (const v of d.items) raw.push({ title: v.snippet.title, source: 'youtube', window: '24h', signal: v.statistics ? Number(v.statistics.viewCount) / 50000 : 20 });\n  }\n}\n\nconst CATEGORY_KEYWORDS = {\n  'Freelancing': /freelanc|upwork|fiverr|client work|gig/i,\n  'Digital Products': /template|ebook|notion|canva|prompt pack|digital product|pdf guide/i,\n  'AI Tools': /\\bai\\b|gpt|llm|chatbot|copilot|midjourney/i,\n  'Side Hustles': /side hustle|side gig|extra income/i,\n  'Passive Income Ideas': /passive income|dividend|royalt/i,\n  'Online Business Ideas': /online business|ecommerce|dropship/i,\n  'Remote Jobs': /remote job|work from home|wfh/i,\n  'Tech Trends': /tech trend|technology|developer|programming/i,\n  'Productivity Tools': /productivity|notion|todo|time management/i,\n  'Startup Ideas': /startup|founder|venture|y combinator/i,\n  'SaaS': /saas|subscription software|micro-saas/i,\n  'Digital Marketing': /marketing|seo|content marketing|ads|growth hack/i,\n  'No-Code Tools': /no.?code|low.?code|bubble|webflow|zapier/i,\n  'AI Automation': /automation|workflow|n8n|zapier|make\\.com/i,\n  'Mobile Apps': /mobile app|ios app|android app|app store/i,\n  'Website Ideas': /website|landing page|web design/i,\n  'Student Income Opportunities': /student|college|university|intern/i,\n  'Career Growth': /career|resume|job interview|promotion/i,\n  'Business Trends': /business trend|market trend|industry/i,\n  'Government Tech Trends': /government|gov.?tech|policy|regulation/i,\n  'Viral Internet Trends': /viral|trending now|meme|going viral/i\n};\n\nfunction categorize(title) {\n  for (const [cat, re] of Object.entries(CATEGORY_KEYWORDS)) if (re.test(title)) return cat;\n  return 'Tech Trends';\n}\n\nconst SOURCE_WEIGHT = { reddit: 1.1, product_hunt: 1.3, hacker_news: 1.15, github_trending: 1.1, google_trends: 1.3, news: 0.9, youtube: 1.15 };\nconst AUTOMATION_BOOST = /AI Tools|No-Code Tools|AI Automation|SaaS|Productivity Tools/;\nconst VIRAL_BOOST = /Viral Internet Trends|Side Hustles|Passive Income Ideas/;\n\nconst seen = new Map();\nfor (const t of raw) {\n  if (!t.title || t.title.length < 6) continue;\n  const key = t.title.toLowerCase().trim().slice(0, 80);\n  const category = categorize(t.title);\n  const weight = SOURCE_WEIGHT[t.source] || 1;\n  const demand = Math.min(100, Math.round((Math.log10((t.signal || 1) + 1) * 28) * weight));\n  const competition = Math.min(100, Math.max(10, Math.round(t.title.length > 70 ? 35 : 65)));\n  const seo = Math.min(100, Math.round(demand * 0.6 + (100 - competition) * 0.4));\n  const viral = Math.min(100, Math.round(demand * (VIRAL_BOOST.test(category) ? 1.25 : 0.9)));\n  const automation = Math.min(100, Math.round(AUTOMATION_BOOST.test(category) ? 75 + Math.random() * 20 : 35 + Math.random() * 20));\n  const difficulty = Math.min(100, Math.max(10, 100 - Math.round(demand * 0.3 + competition * 0.2)));\n  const profitability = Math.min(100, Math.round(demand * 0.5 + (100 - competition) * 0.3 + seo * 0.2));\n  const longterm = Math.min(100, Math.round((demand + (100 - competition) + automation) / 3));\n  const overall = Math.round(demand * 0.22 + profitability * 0.2 + (100 - difficulty) * 0.1 + (100 - competition) * 0.15 + seo * 0.13 + viral * 0.1 + automation * 0.06 + longterm * 0.04);\n\n  const row = {\n    run_id: runId, title: t.title.slice(0, 250), category, source: t.source, window: t.window,\n    demand_score: demand, profitability_score: profitability, difficulty_score: difficulty,\n    competition_score: competition, seo_score: seo, viral_score: viral, automation_score: automation,\n    longterm_score: longterm, overall_score: overall, status: 'candidate'\n  };\n  if (!seen.has(key) || seen.get(key).overall_score < overall) seen.set(key, row);\n}\n\nconst ranked = Array.from(seen.values()).sort((a, b) => b.overall_score - a.overall_score).slice(0, 60);\nreturn ranked.map(r => ({ json: r }));\n"
       },
       "id": "code-score-topics",
       "name": "Categorize & Score Topics",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -1480, 0 ]
+      "position": [
+        -1480,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "trend_topics" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "trend_topics"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "run_id": "={{$json.run_id}}", "title": "={{$json.title}}", "category": "={{$json.category}}",
-            "source": "={{$json.source}}", "window": "={{$json.window}}", "demand_score": "={{$json.demand_score}}",
-            "profitability_score": "={{$json.profitability_score}}", "difficulty_score": "={{$json.difficulty_score}}",
-            "competition_score": "={{$json.competition_score}}", "seo_score": "={{$json.seo_score}}",
-            "viral_score": "={{$json.viral_score}}", "automation_score": "={{$json.automation_score}}",
-            "longterm_score": "={{$json.longterm_score}}", "overall_score": "={{$json.overall_score}}", "status": "={{$json.status}}"
+            "run_id": "={{$json.run_id}}",
+            "title": "={{$json.title}}",
+            "category": "={{$json.category}}",
+            "source": "={{$json.source}}",
+            "window": "={{$json.window}}",
+            "demand_score": "={{$json.demand_score}}",
+            "profitability_score": "={{$json.profitability_score}}",
+            "difficulty_score": "={{$json.difficulty_score}}",
+            "competition_score": "={{$json.competition_score}}",
+            "seo_score": "={{$json.seo_score}}",
+            "viral_score": "={{$json.viral_score}}",
+            "automation_score": "={{$json.automation_score}}",
+            "longterm_score": "={{$json.longterm_score}}",
+            "overall_score": "={{$json.overall_score}}",
+            "status": "={{$json.status}}"
           }
         }
       },
@@ -236,8 +399,16 @@
       "name": "Save Trend Topics (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -1260, 0 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        -1260,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3
@@ -250,34 +421,42 @@
       "name": "Select Top Topics",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -1040, 0 ]
+      "position": [
+        -1040,
+        0
+      ]
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_RESEARCH_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.6, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are an expert Digital Product Consultant. Given a list of currently trending topics, research and propose at least 10 trending digital products spanning categories like Notion Templates, Canva Templates, Resume Templates, AI Prompt Packs, eBooks, Study Materials, AI Agents, SaaS Ideas, Chrome Extensions, Mobile Apps, Productivity Tools, Student Tools, Online Courses, Templates, Web Components, UI Kits, Design Systems, PDF Guides. Return strict JSON: {\"products\": [{\"product_name\": string, \"product_type\": string, \"description\": string, \"target_audience\": string, \"difficulty_level\": \"beginner\"|\"intermediate\"|\"advanced\", \"estimated_price_usd\": number, \"market_demand\": string, \"competition_level\": string, \"monthly_income_low_usd\": number, \"monthly_income_high_usd\": number, \"best_platform\": string, \"marketing_strategy\": string, \"demand_score\": number, \"profitability_score\": number, \"difficulty_score\": number, \"competition_score\": number}]}. All *_score fields are 0-100. Be factual, avoid duplicate or outdated ideas, prioritize high demand + low competition + high monetization."
-            },
-            {
-              "role": "user",
-              "content": "=Trending topics for {{$json.run_id}}:\\n{{ JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category, overall_score: t.overall_score}))) }}\\n\\nPropose the digital products now."
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"You are an expert Digital Product Consultant. Given a list of currently trending topics, research and propose at least 10 trending digital products spanning categories like Notion Templates, Canva Templates, Resume Templates, AI Prompt Packs, eBooks, Study Materials, AI Agents, SaaS Ideas, Chrome Extensions, Mobile Apps, Productivity Tools, Student Tools, Online Courses, Templates, Web Components, UI Kits, Design Systems, PDF Guides. Return strict JSON: {\\\"products\\\": [{\\\"product_name\\\": string, \\\"product_type\\\": string, \\\"description\\\": string, \\\"target_audience\\\": string, \\\"difficulty_level\\\": \\\"beginner\\\"|\\\"intermediate\\\"|\\\"advanced\\\", \\\"estimated_price_usd\\\": number, \\\"market_demand\\\": string, \\\"competition_level\\\": string, \\\"monthly_income_low_usd\\\": number, \\\"monthly_income_high_usd\\\": number, \\\"best_platform\\\": string, \\\"marketing_strategy\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"difficulty_score\\\": number, \\\"competition_score\\\": number}]}. All *_score fields are 0-100. Be factual, avoid duplicate or outdated ideas, prioritize high demand + low competition + high monetization.\" }, { role: 'user', content: `Trending topics for ${$json.run_id}:\\n${JSON.stringify($json.topics.map(t => ({title: t.title, category: t.category, overall_score: t.overall_score})))}\\n\\nPropose the digital products now.` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-digital-products",
-      "name": "Digital Product Research (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -820, -140 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Digital Product Research (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -820,
+        -140
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -287,24 +466,40 @@
       "name": "Parse Digital Products",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -600, -140 ]
+      "position": [
+        -600,
+        -140
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "digital_products" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "digital_products"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "run_id": "={{$json.run_id}}", "product_name": "={{$json.product_name}}", "product_type": "={{$json.product_type}}",
-            "description": "={{$json.description}}", "target_audience": "={{$json.target_audience}}",
-            "difficulty_level": "={{$json.difficulty_level}}", "estimated_price_usd": "={{$json.estimated_price_usd}}",
-            "market_demand": "={{$json.market_demand}}", "competition_level": "={{$json.competition_level}}",
-            "monthly_income_low_usd": "={{$json.monthly_income_low_usd}}", "monthly_income_high_usd": "={{$json.monthly_income_high_usd}}",
-            "best_platform": "={{$json.best_platform}}", "marketing_strategy": "={{$json.marketing_strategy}}",
-            "demand_score": "={{$json.demand_score}}", "profitability_score": "={{$json.profitability_score}}",
-            "difficulty_score": "={{$json.difficulty_score}}", "competition_score": "={{$json.competition_score}}"
+            "run_id": "={{$json.run_id}}",
+            "product_name": "={{$json.product_name}}",
+            "product_type": "={{$json.product_type}}",
+            "description": "={{$json.description}}",
+            "target_audience": "={{$json.target_audience}}",
+            "difficulty_level": "={{$json.difficulty_level}}",
+            "estimated_price_usd": "={{$json.estimated_price_usd}}",
+            "market_demand": "={{$json.market_demand}}",
+            "competition_level": "={{$json.competition_level}}",
+            "monthly_income_low_usd": "={{$json.monthly_income_low_usd}}",
+            "monthly_income_high_usd": "={{$json.monthly_income_high_usd}}",
+            "best_platform": "={{$json.best_platform}}",
+            "marketing_strategy": "={{$json.marketing_strategy}}",
+            "demand_score": "={{$json.demand_score}}",
+            "profitability_score": "={{$json.profitability_score}}",
+            "difficulty_score": "={{$json.difficulty_score}}",
+            "competition_score": "={{$json.competition_score}}"
           }
         }
       },
@@ -312,38 +507,51 @@
       "name": "Save Digital Products (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -380, -140 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        -380,
+        -140
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_RESEARCH_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.6, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are an expert Freelancing Mentor. Given trending topics, propose at least 10 freelancing opportunities covering high-paying niches, low-competition niches, trending skills, beginner-friendly services, and AI-powered services on platforms like Upwork, Fiverr, Freelancer, Toptal, Contra, PeoplePerHour, LinkedIn, Guru, and remote job boards. Return strict JSON: {\"opportunities\": [{\"skill_required\": string, \"niche_type\": \"high_paying\"|\"low_competition\"|\"trending\"|\"beginner_friendly\"|\"ai_powered\", \"income_potential\": string, \"best_platform\": string, \"demand_level\": string, \"learning_resources\": string, \"portfolio_ideas\": string, \"how_to_get_clients\": string, \"average_pricing\": string, \"demand_score\": number, \"profitability_score\": number, \"competition_score\": number}]}. All *_score fields 0-100."
-            },
-            {
-              "role": "user",
-              "content": "=Trending topics for {{$('Select Top Topics').item.json.run_id}}:\\n{{ JSON.stringify($('Select Top Topics').item.json.topics.map(t => ({title: t.title, category: t.category}))) }}\\n\\nPropose the freelancing opportunities now."
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"You are an expert Freelancing Mentor. Given trending topics, propose at least 10 freelancing opportunities covering high-paying niches, low-competition niches, trending skills, beginner-friendly services, and AI-powered services on platforms like Upwork, Fiverr, Freelancer, Toptal, Contra, PeoplePerHour, LinkedIn, Guru, and remote job boards. Return strict JSON: {\\\"opportunities\\\": [{\\\"skill_required\\\": string, \\\"niche_type\\\": \\\"high_paying\\\"|\\\"low_competition\\\"|\\\"trending\\\"|\\\"beginner_friendly\\\"|\\\"ai_powered\\\", \\\"income_potential\\\": string, \\\"best_platform\\\": string, \\\"demand_level\\\": string, \\\"learning_resources\\\": string, \\\"portfolio_ideas\\\": string, \\\"how_to_get_clients\\\": string, \\\"average_pricing\\\": string, \\\"demand_score\\\": number, \\\"profitability_score\\\": number, \\\"competition_score\\\": number}]}. All *_score fields 0-100.\" }, { role: 'user', content: `Trending topics for ${$('Select Top Topics').item.json.run_id}:\\n${JSON.stringify($('Select Top Topics').item.json.topics.map(t => ({title: t.title, category: t.category})))}\\n\\nPropose the freelancing opportunities now.` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-freelancing",
-      "name": "Freelancing Research (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -820, 140 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Freelancing Research (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -820,
+        140
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -353,22 +561,36 @@
       "name": "Parse Freelancing Opportunities",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -600, 140 ]
+      "position": [
+        -600,
+        140
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "freelancing_opportunities" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "freelancing_opportunities"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "run_id": "={{$json.run_id}}", "skill_required": "={{$json.skill_required}}", "niche_type": "={{$json.niche_type}}",
-            "income_potential": "={{$json.income_potential}}", "best_platform": "={{$json.best_platform}}",
-            "demand_level": "={{$json.demand_level}}", "learning_resources": "={{$json.learning_resources}}",
-            "portfolio_ideas": "={{$json.portfolio_ideas}}", "how_to_get_clients": "={{$json.how_to_get_clients}}",
-            "average_pricing": "={{$json.average_pricing}}", "demand_score": "={{$json.demand_score}}",
-            "profitability_score": "={{$json.profitability_score}}", "competition_score": "={{$json.competition_score}}"
+            "run_id": "={{$json.run_id}}",
+            "skill_required": "={{$json.skill_required}}",
+            "niche_type": "={{$json.niche_type}}",
+            "income_potential": "={{$json.income_potential}}",
+            "best_platform": "={{$json.best_platform}}",
+            "demand_level": "={{$json.demand_level}}",
+            "learning_resources": "={{$json.learning_resources}}",
+            "portfolio_ideas": "={{$json.portfolio_ideas}}",
+            "how_to_get_clients": "={{$json.how_to_get_clients}}",
+            "average_pricing": "={{$json.average_pricing}}",
+            "demand_score": "={{$json.demand_score}}",
+            "profitability_score": "={{$json.profitability_score}}",
+            "competition_score": "={{$json.competition_score}}"
           }
         }
       },
@@ -376,66 +598,304 @@
       "name": "Save Freelancing Opportunities (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -380, 140 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        -380,
+        140
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3
     },
     {
       "parameters": {
-        "workflowId": { "value": "02-content-generation-workflow", "mode": "list" },
-        "options": { "waitForSubWorkflow": false }
+        "workflowId": {
+          "value": "02-content-generation-workflow",
+          "mode": "list"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "execute-content-workflow",
       "name": "Trigger Content Generation",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [ -160, -140 ]
+      "position": [
+        -160,
+        -140
+      ]
     },
     {
       "parameters": {
-        "workflowId": { "value": "03-business-student-viral-workflow", "mode": "list" },
-        "options": { "waitForSubWorkflow": false }
+        "workflowId": {
+          "value": "03-business-student-viral-workflow",
+          "mode": "list"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "execute-business-workflow",
       "name": "Trigger Business/Student/Viral Research",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [ -160, 140 ]
+      "position": [
+        -160,
+        140
+      ]
     }
   ],
   "connections": {
-    "Daily Schedule Trigger (06:00)": { "main": [ [ { "node": "Run Config", "type": "main", "index": 0 } ] ] },
-    "Run Config": { "main": [ [
-      { "node": "Fetch Reddit Trends", "type": "main", "index": 0 },
-      { "node": "Fetch Product Hunt Trends", "type": "main", "index": 0 },
-      { "node": "Fetch Hacker News Trends", "type": "main", "index": 0 },
-      { "node": "Fetch GitHub Trending", "type": "main", "index": 0 },
-      { "node": "Fetch Google Trends", "type": "main", "index": 0 },
-      { "node": "Fetch Tech/Startup News", "type": "main", "index": 0 },
-      { "node": "Fetch YouTube Trending (Tech)", "type": "main", "index": 0 }
-    ] ] },
-    "Fetch Reddit Trends": { "main": [ [ { "node": "Merge All Sources", "type": "main", "index": 0 } ] ] },
-    "Fetch Product Hunt Trends": { "main": [ [ { "node": "Merge All Sources", "type": "main", "index": 1 } ] ] },
-    "Fetch Hacker News Trends": { "main": [ [ { "node": "Merge All Sources", "type": "main", "index": 2 } ] ] },
-    "Fetch GitHub Trending": { "main": [ [ { "node": "Merge All Sources", "type": "main", "index": 3 } ] ] },
-    "Fetch Google Trends": { "main": [ [ { "node": "Merge All Sources", "type": "main", "index": 4 } ] ] },
-    "Fetch Tech/Startup News": { "main": [ [ { "node": "Merge All Sources", "type": "main", "index": 5 } ] ] },
-    "Fetch YouTube Trending (Tech)": { "main": [ [ { "node": "Merge All Sources", "type": "main", "index": 6 } ] ] },
-    "Merge All Sources": { "main": [ [ { "node": "Categorize & Score Topics", "type": "main", "index": 0 } ] ] },
-    "Categorize & Score Topics": { "main": [ [ { "node": "Save Trend Topics (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Save Trend Topics (Postgres)": { "main": [ [ { "node": "Select Top Topics", "type": "main", "index": 0 } ] ] },
-    "Select Top Topics": { "main": [ [
-      { "node": "Digital Product Research (OpenAI)", "type": "main", "index": 0 },
-      { "node": "Freelancing Research (OpenAI)", "type": "main", "index": 0 }
-    ] ] },
-    "Digital Product Research (OpenAI)": { "main": [ [ { "node": "Parse Digital Products", "type": "main", "index": 0 } ] ] },
-    "Parse Digital Products": { "main": [ [ { "node": "Save Digital Products (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Save Digital Products (Postgres)": { "main": [ [ { "node": "Trigger Content Generation", "type": "main", "index": 0 } ] ] },
-    "Freelancing Research (OpenAI)": { "main": [ [ { "node": "Parse Freelancing Opportunities", "type": "main", "index": 0 } ] ] },
-    "Parse Freelancing Opportunities": { "main": [ [ { "node": "Save Freelancing Opportunities (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Save Freelancing Opportunities (Postgres)": { "main": [ [ { "node": "Trigger Business/Student/Viral Research", "type": "main", "index": 0 } ] ] }
+    "Daily Schedule Trigger (06:00)": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Fetch Reddit Trends",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Product Hunt Trends",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Hacker News Trends",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch GitHub Trending",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Google Trends",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Tech/Startup News",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch YouTube Trending (Tech)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Reddit Trends": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Product Hunt Trends": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fetch Hacker News Trends": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Fetch GitHub Trending": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Fetch Google Trends": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Fetch Tech/Startup News": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Fetch YouTube Trending (Tech)": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Merge All Sources": {
+      "main": [
+        [
+          {
+            "node": "Categorize & Score Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize & Score Topics": {
+      "main": [
+        [
+          {
+            "node": "Save Trend Topics (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Trend Topics (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Select Top Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Top Topics": {
+      "main": [
+        [
+          {
+            "node": "Digital Product Research (Ollama)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Freelancing Research (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Digital Product Research (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse Digital Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Digital Products": {
+      "main": [
+        [
+          {
+            "node": "Save Digital Products (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Digital Products (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Trigger Content Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Freelancing Research (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse Freelancing Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Freelancing Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Save Freelancing Opportunities (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Freelancing Opportunities (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Trigger Business/Student/Viral Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "settings": {
     "executionOrder": "v1",

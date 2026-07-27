@@ -7,51 +7,86 @@
       "name": "When Called by Trend Research",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [ -2200, 0 ]
+      "position": [
+        -2200,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "select",
-        "schema": { "value": "public" },
-        "table": { "value": "trend_topics" },
-        "sort": { "values": [ { "column": "overall_score", "direction": "DESC" } ] },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "trend_topics"
+        },
+        "sort": {
+          "values": [
+            {
+              "column": "overall_score",
+              "direction": "DESC"
+            }
+          ]
+        },
         "limit": 1,
-        "where": { "values": [ { "column": "status", "condition": "equal", "value": "candidate" } ] },
+        "where": {
+          "values": [
+            {
+              "column": "status",
+              "condition": "equal",
+              "value": "candidate"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "postgres-get-top-topic",
       "name": "Get Top Topic (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -1980, 0 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } }
+      "position": [
+        -1980,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      }
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.7, "responseFormat": "json_object", "maxTokens": 4000 },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are an expert SEO Content Researcher and Blog Writer. Write a factually accurate, SEO-optimized blog article of at least 1500 words about the given trending opportunity. Return strict JSON: {\"title\": string, \"meta_description\": string, \"seo_keywords\": [string], \"introduction\": string, \"main_content\": string (markdown with H2/H3 headers, at least 1200 words), \"conclusion\": string, \"faqs\": [{\"question\": string, \"answer\": string}] (at least 5)}. Avoid duplicate or outdated information, include actionable recommendations, and prioritize high-value monetizable opportunities."
-            },
-            {
-              "role": "user",
-              "content": "=Write the blog article for this trending opportunity:\\nTitle: {{$json.title}}\\nCategory: {{$json.category}}\\nScores: demand {{$json.demand_score}}, profitability {{$json.profitability_score}}, competition {{$json.competition_score}}, SEO {{$json.seo_score}}"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.7 }, messages: [ { role: 'system', content: \"You are an expert SEO Content Researcher and Blog Writer. Write a factually accurate, SEO-optimized blog article of at least 1500 words about the given trending opportunity. Return strict JSON: {\\\"title\\\": string, \\\"meta_description\\\": string, \\\"seo_keywords\\\": [string], \\\"introduction\\\": string, \\\"main_content\\\": string (markdown with H2/H3 headers, at least 1200 words), \\\"conclusion\\\": string, \\\"faqs\\\": [{\\\"question\\\": string, \\\"answer\\\": string}] (at least 5)}. Avoid duplicate or outdated information, include actionable recommendations, and prioritize high-value monetizable opportunities.\" }, { role: 'user', content: `Write the blog article for this trending opportunity:\\nTitle: ${$json.title}\\nCategory: ${$json.category}\\nScores: demand ${$json.demand_score}, profitability ${$json.profitability_score}, competition ${$json.competition_score}, SEO ${$json.seo_score}` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-blog",
-      "name": "Generate SEO Blog Article (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -1760, 0 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Generate SEO Blog Article (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1760,
+        0
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -61,30 +96,55 @@
       "name": "Parse & Validate Blog (>=1500 words)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -1540, 0 ]
+      "position": [
+        -1540,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "blog_posts" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "blog_posts"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "run_id": "={{$json.run_id}}", "topic_id": "={{$json.topic_id}}", "title": "={{$json.title}}",
-            "meta_description": "={{$json.meta_description}}", "seo_keywords": "={{$json.seo_keywords}}",
-            "introduction": "={{$json.introduction}}", "main_content": "={{$json.main_content}}",
-            "conclusion": "={{$json.conclusion}}", "faqs": "={{JSON.stringify($json.faqs)}}", "word_count": "={{$json.word_count}}"
+            "run_id": "={{$json.run_id}}",
+            "topic_id": "={{$json.topic_id}}",
+            "title": "={{$json.title}}",
+            "meta_description": "={{$json.meta_description}}",
+            "seo_keywords": "={{$json.seo_keywords}}",
+            "introduction": "={{$json.introduction}}",
+            "main_content": "={{$json.main_content}}",
+            "conclusion": "={{$json.conclusion}}",
+            "faqs": "={{JSON.stringify($json.faqs)}}",
+            "word_count": "={{$json.word_count}}"
           }
         },
-        "options": { "outputColumns": [ "id" ] }
+        "options": {
+          "outputColumns": [
+            "id"
+          ]
+        }
       },
       "id": "postgres-save-blog",
       "name": "Save Blog Post (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -1320, 0 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        -1320,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "retryOnFail": true,
       "maxTries": 3
     },
@@ -96,7 +156,10 @@
       "name": "Build Blog Markdown",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -1100, -260 ]
+      "position": [
+        -1100,
+        -260
+      ]
     },
     {
       "parameters": {
@@ -109,34 +172,42 @@
       "name": "Write Blog Markdown File",
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
-      "position": [ -880, -260 ]
+      "position": [
+        -880,
+        -260
+      ]
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.75, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are a social media copywriter. Repurpose the given blog article into short-form content. Return strict JSON: {\"twitter_thread\": string (5-8 numbered tweets), \"linkedin_post\": string, \"instagram_caption\": string (with emojis and hashtags), \"facebook_post\": string, \"telegram_post\": string, \"whatsapp_broadcast\": string (short, high-urgency)}."
-            },
-            {
-              "role": "user",
-              "content": "=Blog title: {{$('Parse & Validate Blog (>=1500 words)').item.json.title}}\\nIntroduction: {{$('Parse & Validate Blog (>=1500 words)').item.json.introduction}}\\nKey keywords: {{$('Parse & Validate Blog (>=1500 words)').item.json.seo_keywords.join(', ')}}"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.75 }, messages: [ { role: 'system', content: \"You are a social media copywriter. Repurpose the given blog article into short-form content. Return strict JSON: {\\\"twitter_thread\\\": string (5-8 numbered tweets), \\\"linkedin_post\\\": string, \\\"instagram_caption\\\": string (with emojis and hashtags), \\\"facebook_post\\\": string, \\\"telegram_post\\\": string, \\\"whatsapp_broadcast\\\": string (short, high-urgency)}.\" }, { role: 'user', content: `Blog title: ${$('Parse & Validate Blog (>=1500 words)').item.json.title}\\nIntroduction: ${$('Parse & Validate Blog (>=1500 words)').item.json.introduction}\\nKey keywords: ${$('Parse & Validate Blog (>=1500 words)').item.json.seo_keywords.join(', ')}` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-social",
-      "name": "Generate Short Content (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -1100, 0 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Generate Short Content (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1100,
+        0
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -146,20 +217,31 @@
       "name": "Parse Short Content",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -880, 0 ]
+      "position": [
+        -880,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "social_content" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "social_content"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "run_id": "={{$json.run_id}}", "blog_post_id": "={{$json.blog_post_id}}",
-            "twitter_thread": "={{$json.twitter_thread}}", "linkedin_post": "={{$json.linkedin_post}}",
-            "instagram_caption": "={{$json.instagram_caption}}", "facebook_post": "={{$json.facebook_post}}",
-            "telegram_post": "={{$json.telegram_post}}", "whatsapp_broadcast": "={{$json.whatsapp_broadcast}}"
+            "run_id": "={{$json.run_id}}",
+            "blog_post_id": "={{$json.blog_post_id}}",
+            "twitter_thread": "={{$json.twitter_thread}}",
+            "linkedin_post": "={{$json.linkedin_post}}",
+            "instagram_caption": "={{$json.instagram_caption}}",
+            "facebook_post": "={{$json.facebook_post}}",
+            "telegram_post": "={{$json.telegram_post}}",
+            "whatsapp_broadcast": "={{$json.whatsapp_broadcast}}"
           }
         }
       },
@@ -167,37 +249,50 @@
       "name": "Save Short Content (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -660, 0 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        -660,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "retryOnFail": true,
       "maxTries": 3
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.75, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are a YouTube content strategist. Turn the blog article into a YouTube video package. Return strict JSON: {\"video_title\": string (under 100 chars, hook-driven), \"thumbnail_idea\": string, \"script\": string (full spoken script, 3-6 minutes), \"description\": string, \"tags\": [string], \"hashtags\": [string]}."
-            },
-            {
-              "role": "user",
-              "content": "=Blog title: {{$('Parse & Validate Blog (>=1500 words)').item.json.title}}\\nMain content summary: {{$('Parse & Validate Blog (>=1500 words)').item.json.introduction}}"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.75 }, messages: [ { role: 'system', content: \"You are a YouTube content strategist. Turn the blog article into a YouTube video package. Return strict JSON: {\\\"video_title\\\": string (under 100 chars, hook-driven), \\\"thumbnail_idea\\\": string, \\\"script\\\": string (full spoken script, 3-6 minutes), \\\"description\\\": string, \\\"tags\\\": [string], \\\"hashtags\\\": [string]}.\" }, { role: 'user', content: `Blog title: ${$('Parse & Validate Blog (>=1500 words)').item.json.title}\\nMain content summary: ${$('Parse & Validate Blog (>=1500 words)').item.json.introduction}` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-youtube",
-      "name": "Generate YouTube Content (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -660, -160 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Generate YouTube Content (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -660,
+        -160
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -207,19 +302,31 @@
       "name": "Parse YouTube Content",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -440, -160 ]
+      "position": [
+        -440,
+        -160
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "youtube_content" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "youtube_content"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "run_id": "={{$json.run_id}}", "blog_post_id": "={{$json.blog_post_id}}", "video_title": "={{$json.video_title}}",
-            "thumbnail_idea": "={{$json.thumbnail_idea}}", "script": "={{$json.script}}", "description": "={{$json.description}}",
-            "tags": "={{$json.tags}}", "hashtags": "={{$json.hashtags}}"
+            "run_id": "={{$json.run_id}}",
+            "blog_post_id": "={{$json.blog_post_id}}",
+            "video_title": "={{$json.video_title}}",
+            "thumbnail_idea": "={{$json.thumbnail_idea}}",
+            "script": "={{$json.script}}",
+            "description": "={{$json.description}}",
+            "tags": "={{$json.tags}}",
+            "hashtags": "={{$json.hashtags}}"
           }
         }
       },
@@ -227,37 +334,50 @@
       "name": "Save YouTube Content (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -220, -160 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        -220,
+        -160
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "retryOnFail": true,
       "maxTries": 3
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.6, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are a newsletter editor for a daily opportunities newsletter. Return strict JSON: {\"weekly_trends\": string, \"market_insights\": string, \"opportunities\": string, \"actionable_tips\": string, \"recommended_tools\": string, \"business_ideas\": string}. Keep each section concise (100-200 words), punchy, and actionable."
-            },
-            {
-              "role": "user",
-              "content": "=Base the newsletter on this run's top opportunity: {{$('Parse & Validate Blog (>=1500 words)').item.json.title}} (category: {{ $('Get Top Topic (Postgres)').item.json.category }})."
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"You are a newsletter editor for a daily opportunities newsletter. Return strict JSON: {\\\"weekly_trends\\\": string, \\\"market_insights\\\": string, \\\"opportunities\\\": string, \\\"actionable_tips\\\": string, \\\"recommended_tools\\\": string, \\\"business_ideas\\\": string}. Keep each section concise (100-200 words), punchy, and actionable.\" }, { role: 'user', content: `Base the newsletter on this run's top opportunity: ${$('Parse & Validate Blog (>=1500 words)').item.json.title} (category: ${$('Get Top Topic (Postgres)').item.json.category}).` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-newsletter",
-      "name": "Generate Newsletter (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -220, 160 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Generate Newsletter (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -220,
+        160
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -267,19 +387,30 @@
       "name": "Parse Newsletter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ 0, 160 ]
+      "position": [
+        0,
+        160
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "newsletters" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "newsletters"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "run_id": "={{$json.run_id}}", "weekly_trends": "={{$json.weekly_trends}}", "market_insights": "={{$json.market_insights}}",
-            "opportunities": "={{$json.opportunities}}", "actionable_tips": "={{$json.actionable_tips}}",
-            "recommended_tools": "={{$json.recommended_tools}}", "business_ideas": "={{$json.business_ideas}}"
+            "run_id": "={{$json.run_id}}",
+            "weekly_trends": "={{$json.weekly_trends}}",
+            "market_insights": "={{$json.market_insights}}",
+            "opportunities": "={{$json.opportunities}}",
+            "actionable_tips": "={{$json.actionable_tips}}",
+            "recommended_tools": "={{$json.recommended_tools}}",
+            "business_ideas": "={{$json.business_ideas}}"
           }
         }
       },
@@ -287,8 +418,16 @@
       "name": "Save Newsletter (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ 220, 160 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        220,
+        160
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "retryOnFail": true,
       "maxTries": 3
     },
@@ -298,31 +437,188 @@
       "name": "Content Generation Complete",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [ 440, 0 ]
+      "position": [
+        440,
+        0
+      ]
     }
   ],
   "connections": {
-    "When Called by Trend Research": { "main": [ [ { "node": "Get Top Topic (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Get Top Topic (Postgres)": { "main": [ [ { "node": "Generate SEO Blog Article (OpenAI)", "type": "main", "index": 0 } ] ] },
-    "Generate SEO Blog Article (OpenAI)": { "main": [ [ { "node": "Parse & Validate Blog (>=1500 words)", "type": "main", "index": 0 } ] ] },
-    "Parse & Validate Blog (>=1500 words)": { "main": [ [ { "node": "Save Blog Post (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Save Blog Post (Postgres)": { "main": [ [
-      { "node": "Build Blog Markdown", "type": "main", "index": 0 },
-      { "node": "Generate Short Content (OpenAI)", "type": "main", "index": 0 }
-    ] ] },
-    "Build Blog Markdown": { "main": [ [ { "node": "Write Blog Markdown File", "type": "main", "index": 0 } ] ] },
-    "Generate Short Content (OpenAI)": { "main": [ [ { "node": "Parse Short Content", "type": "main", "index": 0 } ] ] },
-    "Parse Short Content": { "main": [ [
-      { "node": "Save Short Content (Postgres)", "type": "main", "index": 0 },
-      { "node": "Generate YouTube Content (OpenAI)", "type": "main", "index": 0 }
-    ] ] },
-    "Generate YouTube Content (OpenAI)": { "main": [ [ { "node": "Parse YouTube Content", "type": "main", "index": 0 } ] ] },
-    "Parse YouTube Content": { "main": [ [ { "node": "Save YouTube Content (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Save YouTube Content (Postgres)": { "main": [ [ { "node": "Generate Newsletter (OpenAI)", "type": "main", "index": 0 } ] ] },
-    "Generate Newsletter (OpenAI)": { "main": [ [ { "node": "Parse Newsletter", "type": "main", "index": 0 } ] ] },
-    "Parse Newsletter": { "main": [ [ { "node": "Save Newsletter (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Save Newsletter (Postgres)": { "main": [ [ { "node": "Content Generation Complete", "type": "main", "index": 0 } ] ] },
-    "Write Blog Markdown File": { "main": [ [ { "node": "Content Generation Complete", "type": "main", "index": 0 } ] ] }
+    "When Called by Trend Research": {
+      "main": [
+        [
+          {
+            "node": "Get Top Topic (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Top Topic (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Generate SEO Blog Article (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate SEO Blog Article (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate Blog (>=1500 words)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate Blog (>=1500 words)": {
+      "main": [
+        [
+          {
+            "node": "Save Blog Post (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Blog Post (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Build Blog Markdown",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Short Content (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Blog Markdown": {
+      "main": [
+        [
+          {
+            "node": "Write Blog Markdown File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Short Content (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse Short Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Short Content": {
+      "main": [
+        [
+          {
+            "node": "Save Short Content (Postgres)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate YouTube Content (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate YouTube Content (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse YouTube Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse YouTube Content": {
+      "main": [
+        [
+          {
+            "node": "Save YouTube Content (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save YouTube Content (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Generate Newsletter (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Newsletter (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse Newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Newsletter": {
+      "main": [
+        [
+          {
+            "node": "Save Newsletter (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Newsletter (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Content Generation Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Blog Markdown File": {
+      "main": [
+        [
+          {
+            "node": "Content Generation Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "settings": {
     "executionOrder": "v1",

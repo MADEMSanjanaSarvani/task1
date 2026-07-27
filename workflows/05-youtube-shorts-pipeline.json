@@ -3,21 +3,50 @@
   "nodes": [
     {
       "parameters": {
-        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 9,14,19 * * *" } ] }
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9,14,19 * * *"
+            }
+          ]
+        }
       },
       "id": "trigger-schedule",
       "name": "Shorts Schedule Trigger (3x/day)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [ -2600, 0 ]
+      "position": [
+        -2600,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "select",
-        "schema": { "value": "public" },
-        "table": { "value": "trend_topics" },
-        "where": { "values": [ { "column": "status", "condition": "equal", "value": "candidate" } ] },
-        "sort": { "values": [ { "column": "overall_score", "direction": "DESC" } ] },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "trend_topics"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "status",
+              "condition": "equal",
+              "value": "candidate"
+            }
+          ]
+        },
+        "sort": {
+          "values": [
+            {
+              "column": "overall_score",
+              "direction": "DESC"
+            }
+          ]
+        },
         "limit": 1,
         "options": {}
       },
@@ -25,50 +54,78 @@
       "name": "Get Next Candidate Topic",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -2380, 0 ]
+      "position": [
+        -2380,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "update",
-        "schema": { "value": "public" },
-        "table": { "value": "trend_topics" },
-        "columns": { "mappingMode": "defineBelow", "value": { "status": "used" } },
-        "where": { "values": [ { "column": "id", "condition": "equal", "value": "={{$json.id}}" } ] }
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "trend_topics"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "used"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "column": "id",
+              "condition": "equal",
+              "value": "={{$json.id}}"
+            }
+          ]
+        }
       },
       "id": "postgres-mark-used",
       "name": "Mark Topic Used",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ -2160, 0 ],
+      "position": [
+        -2160,
+        0
+      ],
       "retryOnFail": true,
       "maxTries": 3
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.7, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are an expert short-form scriptwriter for a YouTube Shorts channel about AI tools, freelancing, side hustles, digital products, and online business opportunities. Always return strict JSON with keys: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords (array), hashtags (array), description. Rules: 30-55 seconds spoken length (110-150 words), factually accurate (no invented income guarantees or unverifiable stats), emotionally engaging opening line, CTA points viewers to 'link in bio' for the full breakdown, no copyrighted quotes."
-            },
-            {
-              "role": "user",
-              "content": "=Topic: {{$('Get Next Candidate Topic').item.json.title}}\\nCategory: {{$('Get Next Candidate Topic').item.json.category}}\\nWhy it matters (scores): demand {{$('Get Next Candidate Topic').item.json.demand_score}}, profitability {{$('Get Next Candidate Topic').item.json.profitability_score}}, competition {{$('Get Next Candidate Topic').item.json.competition_score}}.\\nWrite the short script now."
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.7 }, messages: [ { role: 'system', content: \"You are an expert short-form scriptwriter for a YouTube Shorts channel about AI tools, freelancing, side hustles, digital products, and online business opportunities. Always return strict JSON with keys: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords (array), hashtags (array), description. Rules: 30-55 seconds spoken length (110-150 words), factually accurate (no invented income guarantees or unverifiable stats), emotionally engaging opening line, CTA points viewers to 'link in bio' for the full breakdown, no copyrighted quotes.\" }, { role: 'user', content: `Topic: ${$('Get Next Candidate Topic').item.json.title}\\nCategory: ${$('Get Next Candidate Topic').item.json.category}\\nWhy it matters (scores): demand ${$('Get Next Candidate Topic').item.json.demand_score}, profitability ${$('Get Next Candidate Topic').item.json.profitability_score}, competition ${$('Get Next Candidate Topic').item.json.competition_score}.\\nWrite the short script now.` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-generate-script",
-      "name": "Generate Shorts Script (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -1940, 0 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Generate Shorts Script (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1940,
+        0
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -78,32 +135,42 @@
       "name": "Parse Script Output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -1720, 0 ]
+      "position": [
+        -1720,
+        0
+      ]
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_FACTCHECK_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "You are a rigorous fact-checking model for business/finance content. Verify every factual claim, income figure, and platform reference in the script. Return strict JSON: {\"confidence\": 0-100, \"issues\": [string], \"verdict\": \"pass\"|\"fail\"}. Penalize unverifiable income guarantees heavily."
-            },
-            {
-              "role": "user",
-              "content": "=Fact-check this script:\\n\\n{{$json.full_script}}"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0 }, messages: [ { role: 'system', content: \"You are a rigorous fact-checking model for business/finance content. Verify every factual claim, income figure, and platform reference in the script. Return strict JSON: {\\\"confidence\\\": 0-100, \\\"issues\\\": [string], \\\"verdict\\\": \\\"pass\\\"|\\\"fail\\\"}. Penalize unverifiable income guarantees heavily.\" }, { role: 'user', content: `Fact-check this script:\\n\\n${$json.full_script}` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-fact-check",
-      "name": "Fact Check Script (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -1500, 0 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } }
+      "name": "Fact Check Script (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1500,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -113,13 +180,23 @@
       "name": "Attach Fact-Check Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -1280, 0 ]
+      "position": [
+        -1280,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
           "conditions": [
-            { "leftValue": "={{$json.fact_check.confidence}}", "rightValue": 90, "operator": { "type": "number", "operation": "gte" } }
+            {
+              "leftValue": "={{$json.fact_check.confidence}}",
+              "rightValue": 90,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
           ]
         }
       },
@@ -127,13 +204,23 @@
       "name": "Confidence >= 90%?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [ -1060, 0 ]
+      "position": [
+        -1060,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
           "conditions": [
-            { "leftValue": "={{$json._rewrite_count}}", "rightValue": 3, "operator": { "type": "number", "operation": "lt" } }
+            {
+              "leftValue": "={{$json._rewrite_count}}",
+              "rightValue": 3,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
           ]
         }
       },
@@ -141,32 +228,42 @@
       "name": "Rewrite Attempts < 3?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [ -1060, 220 ]
+      "position": [
+        -1060,
+        220
+      ]
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.5, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "Rewrite the script to fix the factual issues listed while preserving format and length. Return the same JSON schema as before: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords, hashtags, description."
-            },
-            {
-              "role": "user",
-              "content": "=Original script: {{$json.full_script}}\\nIssues to fix: {{$json.fact_check.issues.join(', ')}}"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.5 }, messages: [ { role: 'system', content: \"Rewrite the script to fix the factual issues listed while preserving format and length. Return the same JSON schema as before: title, hook, curiosity_gap, main_explanation, cta, full_script, keywords, hashtags, description.\" }, { role: 'user', content: `Original script: ${$json.full_script}\\nIssues to fix: ${$json.fact_check.issues.join(', ')}` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-rewrite-script",
-      "name": "Rewrite Script (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ -840, 220 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } }
+      "name": "Rewrite Script (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -840,
+        220
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -176,18 +273,29 @@
       "name": "Parse Rewritten Script",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -620, 220 ]
+      "position": [
+        -620,
+        220
+      ]
     },
     {
       "parameters": {
-        "content": "⚠️ Shorts script failed fact-check 3x for topic_id {{$json.topic_id}}. Routed to manual review instead of publishing."
+        "content": "\u26a0\ufe0f Shorts script failed fact-check 3x for topic_id {{$json.topic_id}}. Routed to manual review instead of publishing."
       },
       "id": "discord-manual-review",
       "name": "Alert: Needs Manual Review (Discord)",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
-      "position": [ -840, 400 ],
-      "credentials": { "discordWebhookApi": { "id": "discord-creds", "name": "Discord Webhook" } }
+      "position": [
+        -840,
+        400
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "discord-creds",
+          "name": "Discord Webhook"
+        }
+      }
     },
     {
       "parameters": {
@@ -196,20 +304,36 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "xi-api-key", "value": "={{$env.ELEVENLABS_API_KEY}}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "xi-api-key",
+              "value": "={{$env.ELEVENLABS_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ text: $json.full_script, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.5, similarity_boost: 0.8, style: 0.3 } }) }}",
-        "options": { "response": { "response": { "responseFormat": "file" } }, "timeout": 30000 }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 30000
+        }
       },
       "id": "http-elevenlabs-tts",
       "name": "Generate Voiceover (ElevenLabs)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -840, -180 ],
+      "position": [
+        -840,
+        -180
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000
@@ -222,32 +346,53 @@
       "name": "Generate Scene Prompts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -620, -180 ]
+      "position": [
+        -620,
+        -180
+      ]
     },
     {
-      "parameters": { "batchSize": 1, "options": {} },
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
       "id": "split-scenes",
       "name": "Split Into Scenes",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [ -400, -180 ]
+      "position": [
+        -400,
+        -180
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{$env.AI_VIDEO_PROVIDER_URL || 'https://api.runwayml.com/v1/generate'}}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Bearer {{$env.RUNWAY_API_KEY}}" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.RUNWAY_API_KEY}}"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ prompt: $json.video_prompt, aspect_ratio: '9:16', duration: 5 }) }}",
-        "options": { "timeout": 60000 }
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "http-ai-video-gen",
       "name": "AI Video Gen (Runway/Kling/Veo)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -180, -260 ],
+      "position": [
+        -180,
+        -260
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 2,
@@ -255,29 +400,70 @@
     },
     {
       "parameters": {
-        "conditions": { "conditions": [ { "leftValue": "={{$json.video_url}}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } } ] }
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.video_url}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ]
+        }
       },
       "id": "if-video-success",
       "name": "Video Generation Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [ 40, -260 ]
+      "position": [
+        40,
+        -260
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "https://api.pexels.com/videos/search",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "={{$env.PEXELS_API_KEY}}" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$env.PEXELS_API_KEY}}"
+            }
+          ]
+        },
         "sendQuery": true,
-        "queryParameters": { "parameters": [ { "name": "query", "value": "={{$json.text}}" }, { "name": "orientation", "value": "portrait" }, { "name": "per_page", "value": "1" } ] },
-        "options": { "timeout": 15000 }
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$json.text}}"
+            },
+            {
+              "name": "orientation",
+              "value": "portrait"
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-stock-fallback",
       "name": "Fallback: Stock Footage (Pexels)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ 40, -100 ],
+      "position": [
+        40,
+        -100
+      ],
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 2
@@ -290,7 +476,10 @@
       "name": "Normalize Stock Footage Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ 150, -100 ]
+      "position": [
+        150,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -300,15 +489,25 @@
       "name": "Normalize AI Video Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ 150, -280 ]
+      "position": [
+        150,
+        -280
+      ]
     },
     {
-      "parameters": { "mode": "append", "numberInputs": 2, "options": {} },
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 2,
+        "options": {}
+      },
       "id": "merge-scene-media",
       "name": "Merge Scene Media",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.1,
-      "position": [ 260, -180 ]
+      "position": [
+        260,
+        -180
+      ]
     },
     {
       "parameters": {},
@@ -316,7 +515,10 @@
       "name": "Loop Back (Next Scene)",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [ 480, -180 ],
+      "position": [
+        480,
+        -180
+      ],
       "notes": "Connects back into Split Into Scenes' loop input until all scenes are processed; the batch's 'done' output feeds Build Shotstack Timeline."
     },
     {
@@ -327,7 +529,10 @@
       "name": "Build Shotstack Timeline",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ -400, 60 ],
+      "position": [
+        -400,
+        60
+      ],
       "notes": "Connected from Split Into Scenes' 'done' output (fires once, after the loop over scenes has finished)."
     },
     {
@@ -335,55 +540,103 @@
         "method": "POST",
         "url": "https://api.shotstack.io/v1/render",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-api-key", "value": "={{$env.SHOTSTACK_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.SHOTSTACK_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.timeline ? { timeline: $json.timeline, output: $json.output } : $json) }}",
-        "options": { "timeout": 30000 }
+        "options": {
+          "timeout": 30000
+        }
       },
       "id": "http-shotstack-render",
       "name": "Render Final Video (Shotstack)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ -180, 60 ],
+      "position": [
+        -180,
+        60
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000
     },
     {
-      "parameters": { "amount": 15, "unit": "seconds" },
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
       "id": "wait-render",
       "name": "Wait for Render",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [ 40, 60 ]
+      "position": [
+        40,
+        60
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "=https://api.shotstack.io/v1/render/{{$('Render Final Video (Shotstack)').first().json.response.id}}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-api-key", "value": "={{$env.SHOTSTACK_API_KEY}}" } ] },
-        "options": { "timeout": 15000 }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.SHOTSTACK_API_KEY}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "http-poll-render",
       "name": "Poll Render Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ 260, 60 ],
+      "position": [
+        260,
+        60
+      ],
       "retryOnFail": true,
       "maxTries": 15,
       "waitBetweenTries": 15000
     },
     {
       "parameters": {
-        "conditions": { "conditions": [ { "leftValue": "={{$json.response.status}}", "rightValue": "done", "operator": { "type": "string", "operation": "equals" } } ] }
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.response.status}}",
+              "rightValue": "done",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
       },
       "id": "if-render-done",
       "name": "Render Done?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [ 480, 60 ]
+      "position": [
+        480,
+        60
+      ]
     },
     {
       "parameters": {
@@ -393,83 +646,134 @@
       "name": "Automated Quality Check",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [ 700, 60 ]
+      "position": [
+        700,
+        60
+      ]
     },
     {
       "parameters": {
-        "conditions": { "conditions": [ { "leftValue": "={{$json.qc_passed}}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } } ] }
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.qc_passed}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        }
       },
       "id": "if-qc-passed",
       "name": "QC Passed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [ 920, 60 ]
+      "position": [
+        920,
+        60
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://api.bannerbear.com/v2/images",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "=Bearer {{$env.BANNERBEAR_API_KEY}}" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.BANNERBEAR_API_KEY}}"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ template: $env.BANNERBEAR_TEMPLATE_ID, modifications: [ { name: 'title', text: $('Build Shotstack Timeline').first().json.title } ] }) }}",
-        "options": { "timeout": 20000 }
+        "options": {
+          "timeout": 20000
+        }
       },
       "id": "http-thumbnail",
       "name": "Generate Thumbnail (Bannerbear)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ 1140, -20 ],
+      "position": [
+        1140,
+        -20
+      ],
       "retryOnFail": true,
       "maxTries": 2
     },
     {
       "parameters": {
-        "resource": "chat",
-        "model": "={{$env.OPENAI_MODEL || 'gpt-4.1'}}",
-        "options": { "temperature": 0.6, "responseFormat": "json_object" },
-        "messages": {
-          "values": [
+        "method": "POST",
+        "url": "={{$env.OLLAMA_BASE_URL || 'http://ollama:11434'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "role": "system",
-              "content": "Generate YouTube Shorts SEO metadata. Return strict JSON: {\"seo_title\": string, \"description\": string, \"tags\": [string], \"hashtags\": [string]}. Title under 100 chars, hook-driven, includes #Shorts."
-            },
-            {
-              "role": "user",
-              "content": "=Script title: {{$('Build Shotstack Timeline').first().json.title}}\\nScript: {{$('Build Shotstack Timeline').first().json.full_script}}"
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.1:8b', stream: false, format: 'json', options: { temperature: 0.6 }, messages: [ { role: 'system', content: \"Generate YouTube Shorts SEO metadata. Return strict JSON: {\\\"seo_title\\\": string, \\\"description\\\": string, \\\"tags\\\": [string], \\\"hashtags\\\": [string]}. Title under 100 chars, hook-driven, includes #Shorts.\" }, { role: 'user', content: `Script title: ${$('Build Shotstack Timeline').first().json.title}\\nScript: ${$('Build Shotstack Timeline').first().json.full_script}` } ] }) }}",
+        "options": {
+          "timeout": 180000
         }
       },
       "id": "openai-seo",
-      "name": "Generate SEO Metadata (OpenAI)",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1.6,
-      "position": [ 1140, 140 ],
-      "credentials": { "openAiApi": { "id": "openai-creds", "name": "OpenAI account" } },
+      "name": "Generate SEO Metadata (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1140,
+        140
+      ],
       "retryOnFail": true,
-      "maxTries": 2
+      "maxTries": 2,
+      "waitBetweenTries": 5000
     },
     {
-      "parameters": { "mode": "append", "numberInputs": 2, "options": {} },
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 2,
+        "options": {}
+      },
       "id": "merge-thumbnail-seo",
       "name": "Merge Thumbnail + SEO Results",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.1,
-      "position": [ 1360, 60 ]
+      "position": [
+        1360,
+        60
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{$('Automated Quality Check').first().json.video_url}}",
-        "options": { "response": { "response": { "responseFormat": "file" } }, "timeout": 60000 }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 60000
+        }
       },
       "id": "http-download-video",
       "name": "Download Rendered Video",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ 1580, 60 ],
+      "position": [
+        1580,
+        60
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000,
@@ -494,8 +798,16 @@
       "name": "Upload to YouTube",
       "type": "n8n-nodes-base.youTube",
       "typeVersion": 1,
-      "position": [ 1800, 60 ],
-      "credentials": { "youTubeOAuth2Api": { "id": "youtube-oauth", "name": "YouTube OAuth2" } },
+      "position": [
+        1800,
+        60
+      ],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "youtube-oauth",
+          "name": "YouTube OAuth2"
+        }
+      },
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 10000,
@@ -505,17 +817,28 @@
       "parameters": {
         "method": "GET",
         "url": "={{$('Generate Thumbnail (Bannerbear)').first().json.image_url}}",
-        "options": { "response": { "response": { "responseFormat": "file", "outputPropertyName": "thumbnail" } }, "timeout": 30000 }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "thumbnail"
+            }
+          },
+          "timeout": 30000
+        }
       },
       "id": "http-download-thumbnail",
       "name": "Download Thumbnail Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ 2020, 60 ],
+      "position": [
+        2020,
+        60
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000,
-      "notes": "Bannerbear can render asynchronously — if image_url is not yet populated in the initial response, insert a Wait + poll (same pattern as the Shotstack render) before this node."
+      "notes": "Bannerbear can render asynchronously \u2014 if image_url is not yet populated in the initial response, insert a Wait + poll (same pattern as the Shotstack render) before this node."
     },
     {
       "parameters": {
@@ -528,14 +851,26 @@
       "name": "Set YouTube Thumbnail",
       "type": "n8n-nodes-base.youTube",
       "typeVersion": 1,
-      "position": [ 2240, 60 ],
-      "credentials": { "youTubeOAuth2Api": { "id": "youtube-oauth", "name": "YouTube OAuth2" } }
+      "position": [
+        2240,
+        60
+      ],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "youtube-oauth",
+          "name": "YouTube OAuth2"
+        }
+      }
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "published_videos" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "published_videos"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -558,89 +893,502 @@
       "name": "Log Published Video (Postgres)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [ 2460, 60 ],
-      "credentials": { "postgres": { "id": "postgres-creds", "name": "Postgres account" } },
+      "position": [
+        2460,
+        60
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      },
       "retryOnFail": true,
       "maxTries": 3
     },
     {
       "parameters": {
-        "content": "✅ Published: {{$('Build Shotstack Timeline').item.json.title}}\nhttps://youtube.com/shorts/{{$('Upload to YouTube').item.json.id}}"
+        "content": "\u2705 Published: {{$('Build Shotstack Timeline').item.json.title}}\nhttps://youtube.com/shorts/{{$('Upload to YouTube').item.json.id}}"
       },
       "id": "discord-notify-success",
       "name": "Notify Success (Discord)",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
-      "position": [ 2680, 60 ],
-      "credentials": { "discordWebhookApi": { "id": "discord-creds", "name": "Discord Webhook" } }
+      "position": [
+        2680,
+        60
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "discord-creds",
+          "name": "Discord Webhook"
+        }
+      }
     },
     {
       "parameters": {
-        "content": "⚠️ Shorts QC failed for '{{$('Build Shotstack Timeline').item.json.title}}': {{$json.qc_issues.join(', ')}}. Not published."
+        "content": "\u26a0\ufe0f Shorts QC failed for '{{$('Build Shotstack Timeline').item.json.title}}': {{$json.qc_issues.join(', ')}}. Not published."
       },
       "id": "discord-notify-qc-failure",
       "name": "Notify QC Failure (Discord)",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
-      "position": [ 920, 260 ],
-      "credentials": { "discordWebhookApi": { "id": "discord-creds", "name": "Discord Webhook" } }
+      "position": [
+        920,
+        260
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "discord-creds",
+          "name": "Discord Webhook"
+        }
+      }
     }
   ],
   "connections": {
-    "Shorts Schedule Trigger (3x/day)": { "main": [ [ { "node": "Get Next Candidate Topic", "type": "main", "index": 0 } ] ] },
-    "Get Next Candidate Topic": { "main": [ [ { "node": "Mark Topic Used", "type": "main", "index": 0 } ] ] },
-    "Mark Topic Used": { "main": [ [ { "node": "Generate Shorts Script (OpenAI)", "type": "main", "index": 0 } ] ] },
-    "Generate Shorts Script (OpenAI)": { "main": [ [ { "node": "Parse Script Output", "type": "main", "index": 0 } ] ] },
-    "Parse Script Output": { "main": [ [ { "node": "Fact Check Script (OpenAI)", "type": "main", "index": 0 } ] ] },
-    "Fact Check Script (OpenAI)": { "main": [ [ { "node": "Attach Fact-Check Result", "type": "main", "index": 0 } ] ] },
-    "Attach Fact-Check Result": { "main": [ [ { "node": "Confidence >= 90%?", "type": "main", "index": 0 } ] ] },
-    "Confidence >= 90%?": { "main": [
-      [ { "node": "Generate Voiceover (ElevenLabs)", "type": "main", "index": 0 } ],
-      [ { "node": "Rewrite Attempts < 3?", "type": "main", "index": 0 } ]
-    ] },
-    "Rewrite Attempts < 3?": { "main": [
-      [ { "node": "Rewrite Script (OpenAI)", "type": "main", "index": 0 } ],
-      [ { "node": "Alert: Needs Manual Review (Discord)", "type": "main", "index": 0 } ]
-    ] },
-    "Rewrite Script (OpenAI)": { "main": [ [ { "node": "Parse Rewritten Script", "type": "main", "index": 0 } ] ] },
-    "Parse Rewritten Script": { "main": [ [ { "node": "Fact Check Script (OpenAI)", "type": "main", "index": 0 } ] ] },
-    "Generate Voiceover (ElevenLabs)": { "main": [ [ { "node": "Generate Scene Prompts", "type": "main", "index": 0 } ] ] },
-    "Generate Scene Prompts": { "main": [ [ { "node": "Split Into Scenes", "type": "main", "index": 0 } ] ] },
-    "Split Into Scenes": { "main": [
-      [ { "node": "Build Shotstack Timeline", "type": "main", "index": 0 } ],
-      [ { "node": "AI Video Gen (Runway/Kling/Veo)", "type": "main", "index": 0 } ]
-    ] },
-    "AI Video Gen (Runway/Kling/Veo)": { "main": [ [ { "node": "Video Generation Success?", "type": "main", "index": 0 } ] ] },
-    "Video Generation Success?": { "main": [
-      [ { "node": "Normalize AI Video Result", "type": "main", "index": 0 } ],
-      [ { "node": "Fallback: Stock Footage (Pexels)", "type": "main", "index": 0 } ]
-    ] },
-    "Normalize AI Video Result": { "main": [ [ { "node": "Merge Scene Media", "type": "main", "index": 0 } ] ] },
-    "Fallback: Stock Footage (Pexels)": { "main": [ [ { "node": "Normalize Stock Footage Result", "type": "main", "index": 0 } ] ] },
-    "Normalize Stock Footage Result": { "main": [ [ { "node": "Merge Scene Media", "type": "main", "index": 1 } ] ] },
-    "Merge Scene Media": { "main": [ [ { "node": "Loop Back (Next Scene)", "type": "main", "index": 0 } ] ] },
-    "Loop Back (Next Scene)": { "main": [ [ { "node": "Split Into Scenes", "type": "main", "index": 0 } ] ] },
-    "Build Shotstack Timeline": { "main": [ [ { "node": "Render Final Video (Shotstack)", "type": "main", "index": 0 } ] ] },
-    "Render Final Video (Shotstack)": { "main": [ [ { "node": "Wait for Render", "type": "main", "index": 0 } ] ] },
-    "Wait for Render": { "main": [ [ { "node": "Poll Render Status", "type": "main", "index": 0 } ] ] },
-    "Poll Render Status": { "main": [ [ { "node": "Render Done?", "type": "main", "index": 0 } ] ] },
-    "Render Done?": { "main": [
-      [ { "node": "Automated Quality Check", "type": "main", "index": 0 } ],
-      [ { "node": "Wait for Render", "type": "main", "index": 0 } ]
-    ] },
-    "Automated Quality Check": { "main": [ [ { "node": "QC Passed?", "type": "main", "index": 0 } ] ] },
-    "QC Passed?": { "main": [
-      [ { "node": "Generate Thumbnail (Bannerbear)", "type": "main", "index": 0 }, { "node": "Generate SEO Metadata (OpenAI)", "type": "main", "index": 0 } ],
-      [ { "node": "Notify QC Failure (Discord)", "type": "main", "index": 0 } ]
-    ] },
-    "Generate Thumbnail (Bannerbear)": { "main": [ [ { "node": "Merge Thumbnail + SEO Results", "type": "main", "index": 0 } ] ] },
-    "Generate SEO Metadata (OpenAI)": { "main": [ [ { "node": "Merge Thumbnail + SEO Results", "type": "main", "index": 1 } ] ] },
-    "Merge Thumbnail + SEO Results": { "main": [ [ { "node": "Download Rendered Video", "type": "main", "index": 0 } ] ] },
-    "Download Rendered Video": { "main": [ [ { "node": "Upload to YouTube", "type": "main", "index": 0 } ] ] },
-    "Upload to YouTube": { "main": [ [ { "node": "Download Thumbnail Image", "type": "main", "index": 0 } ] ] },
-    "Download Thumbnail Image": { "main": [ [ { "node": "Set YouTube Thumbnail", "type": "main", "index": 0 } ] ] },
-    "Set YouTube Thumbnail": { "main": [ [ { "node": "Log Published Video (Postgres)", "type": "main", "index": 0 } ] ] },
-    "Log Published Video (Postgres)": { "main": [ [ { "node": "Notify Success (Discord)", "type": "main", "index": 0 } ] ] }
+    "Shorts Schedule Trigger (3x/day)": {
+      "main": [
+        [
+          {
+            "node": "Get Next Candidate Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Next Candidate Topic": {
+      "main": [
+        [
+          {
+            "node": "Mark Topic Used",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Topic Used": {
+      "main": [
+        [
+          {
+            "node": "Generate Shorts Script (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Shorts Script (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse Script Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Script Output": {
+      "main": [
+        [
+          {
+            "node": "Fact Check Script (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fact Check Script (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Attach Fact-Check Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Fact-Check Result": {
+      "main": [
+        [
+          {
+            "node": "Confidence >= 90%?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence >= 90%?": {
+      "main": [
+        [
+          {
+            "node": "Generate Voiceover (ElevenLabs)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rewrite Attempts < 3?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Attempts < 3?": {
+      "main": [
+        [
+          {
+            "node": "Rewrite Script (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: Needs Manual Review (Discord)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Script (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Parse Rewritten Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Rewritten Script": {
+      "main": [
+        [
+          {
+            "node": "Fact Check Script (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Voiceover (ElevenLabs)": {
+      "main": [
+        [
+          {
+            "node": "Generate Scene Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Scene Prompts": {
+      "main": [
+        [
+          {
+            "node": "Split Into Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Scenes": {
+      "main": [
+        [
+          {
+            "node": "Build Shotstack Timeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Video Gen (Runway/Kling/Veo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Video Gen (Runway/Kling/Veo)": {
+      "main": [
+        [
+          {
+            "node": "Video Generation Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video Generation Success?": {
+      "main": [
+        [
+          {
+            "node": "Normalize AI Video Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback: Stock Footage (Pexels)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize AI Video Result": {
+      "main": [
+        [
+          {
+            "node": "Merge Scene Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback: Stock Footage (Pexels)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Stock Footage Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Stock Footage Result": {
+      "main": [
+        [
+          {
+            "node": "Merge Scene Media",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Scene Media": {
+      "main": [
+        [
+          {
+            "node": "Loop Back (Next Scene)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Back (Next Scene)": {
+      "main": [
+        [
+          {
+            "node": "Split Into Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Shotstack Timeline": {
+      "main": [
+        [
+          {
+            "node": "Render Final Video (Shotstack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Final Video (Shotstack)": {
+      "main": [
+        [
+          {
+            "node": "Wait for Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Render": {
+      "main": [
+        [
+          {
+            "node": "Poll Render Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Render Status": {
+      "main": [
+        [
+          {
+            "node": "Render Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Done?": {
+      "main": [
+        [
+          {
+            "node": "Automated Quality Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Automated Quality Check": {
+      "main": [
+        [
+          {
+            "node": "QC Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QC Passed?": {
+      "main": [
+        [
+          {
+            "node": "Generate Thumbnail (Bannerbear)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate SEO Metadata (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify QC Failure (Discord)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Thumbnail (Bannerbear)": {
+      "main": [
+        [
+          {
+            "node": "Merge Thumbnail + SEO Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate SEO Metadata (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Merge Thumbnail + SEO Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Thumbnail + SEO Results": {
+      "main": [
+        [
+          {
+            "node": "Download Rendered Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Rendered Video": {
+      "main": [
+        [
+          {
+            "node": "Upload to YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to YouTube": {
+      "main": [
+        [
+          {
+            "node": "Download Thumbnail Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Thumbnail Image": {
+      "main": [
+        [
+          {
+            "node": "Set YouTube Thumbnail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set YouTube Thumbnail": {
+      "main": [
+        [
+          {
+            "node": "Log Published Video (Postgres)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Published Video (Postgres)": {
+      "main": [
+        [
+          {
+            "node": "Notify Success (Discord)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "settings": {
     "executionOrder": "v1",
