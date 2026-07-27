@@ -425,6 +425,35 @@ path once they're proven low-value, without touching the workflow's structure.
 - **Prefer a single richer OpenAI call over many small ones** where the schema allows
   it (already done for short-form social content and for freelancing/product
   research) to reduce latency and per-call overhead.
+
+---
+
+## 13. Destination Schema Reference (create these before running workflow 04)
+
+The Sheets/Airtable sync nodes use `autoMapInputData`, which writes whatever fields
+are on the incoming item — it does **not** create the tab/table/columns for you.
+Create each of these with matching headers/fields *before* the first run, or the
+sync nodes will fail (harmlessly, since they're all `continueOnFail` — but nothing
+will land there).
+
+| Destination | Source table | Columns to create |
+|---|---|---|
+| Sheets tab `TrendTopics` / Airtable `TrendTopics` / Notion Trends DB | `trend_topics` | id, run_id, title, category, source, window, demand_score, profitability_score, difficulty_score, competition_score, seo_score, viral_score, automation_score, longterm_score, overall_score, status, created_at |
+| Sheets tab `DigitalProducts` / Airtable `DigitalProducts` / Notion Products DB | `digital_products` | id, run_id, product_name, product_type, description, target_audience, difficulty_level, estimated_price_usd, market_demand, competition_level, monthly_income_low_usd, monthly_income_high_usd, best_platform, marketing_strategy, demand_score, profitability_score, difficulty_score, competition_score, created_at |
+| Sheets tab `Freelancing` / Airtable `Freelancing` | `freelancing_opportunities` | id, run_id, skill_required, niche_type, income_potential, best_platform, demand_level, learning_resources, portfolio_ideas, how_to_get_clients, average_pricing, demand_score, profitability_score, competition_score, created_at |
+| Sheets tab `AIBusinessIdeas` / Airtable `AIBusinessIdeas` | `ai_business_ideas` (top-10 by profitability) | id, run_id, idea_name, problem, solution, target_users, revenue_model, estimated_dev_cost_usd, market_size, monthly_revenue_potential_usd, mvp_features, ai_features, monetization_strategy, demand_score, profitability_score, difficulty_score, automation_score, created_at |
+| Sheets tab `Blogs` | `blog_posts` (latest row) | id, run_id, topic_id, title, meta_description, seo_keywords, introduction, main_content, conclusion, faqs, word_count, created_at |
+| Sheets tab `SocialMediaPosts` | `social_content` (latest row) | id, run_id, blog_post_id, twitter_thread, linkedin_post, instagram_caption, facebook_post, telegram_post, whatsapp_broadcast, created_at |
+| Sheets tab `Newsletters` | `newsletters` (latest row) | id, run_id, weekly_trends, market_insights, opportunities, actionable_tips, recommended_tools, business_ideas, created_at |
+| Sheets tab `DailyReports` / Airtable `DailyReports` / Notion Reports DB | the assembled report bundle | run_id, report_date, top_opportunities, top_digital_products, top_freelancing_niches, top_ai_tools, top_startup_ideas, top_trending_topics, best_side_hustles, highest_revenue_opportunity, lowest_competition_opportunity, recommended_action_plan, markdown_report — **note**: the array/object columns (`top_opportunities`, `highest_revenue_opportunity`, etc.) land as stringified JSON in a single cell, not flat columns, since this row is the aggregated bundle rather than a per-item row like the other tabs |
+| Notion Content DB | latest blog (nested in the report bundle) | Only a Title property is populated (`={{$json.latest_blog.title}}`) — the Notion nodes' `propertiesUi.propertyValues` is intentionally left empty in the JSON since I don't know your database's actual property names/types; add properties matching the `Blogs` row above and populate `propertiesUi.propertyValues` in n8n's UI once the database exists if you want full parity instead of a title-only page |
+
+For Airtable and Notion specifically, column/property **types** matter (number vs.
+text vs. multi-select) — `*_score` and `*_usd` fields should be Number, `keywords`/
+`tags`/`hashtags`/`mvp_features`/`ai_features` arrays should be Multiple Select or
+Long Text (Airtable's API will reject a plain array against a Single Line Text
+field), and `faqs` (an array of `{question, answer}` objects) should be Long Text —
+Airtable/Notion have no native nested-object field type.
 - **Bias workflow 05 toward stock footage for lower-scored topics**: change the
   `AI Video Gen (Runway/Kling/Veo)` node to `continueOnFail`-skip straight to Pexels
   when `overall_score` is below a threshold, reserving the ~$2–5/video AI generation
