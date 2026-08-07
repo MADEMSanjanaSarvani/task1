@@ -6,6 +6,20 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch: {}
 
+# Least-privilege default - nothing in this pipeline writes to the repo, opens PRs,
+# or otherwise needs GITHUB_TOKEN write access.
+permissions:
+  contents: read
+
+# Guards against a scheduled run overlapping a still-running previous one (e.g. if
+# 04_daily_report.py's multi-destination sync is slow one day and the next day's
+# 06:00 trigger fires before it's done) - queue instead of running concurrently,
+# since later jobs read "the latest run_id" from Postgres and two interleaved runs
+# writing to the same tables at once could produce a mixed-up report.
+concurrency:
+  group: daily-content-pipeline
+  cancel-in-progress: false
+
 env:
   SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

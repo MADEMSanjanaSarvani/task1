@@ -37,6 +37,15 @@ implement the same pipeline logic independently — pick one, you don't need bot
 .github/workflows/
   daily-content-pipeline.yml   # cron 06:00 UTC daily
   youtube-shorts.yml           # cron 09:00/14:00/19:00 UTC
+  tests.yml                    # runs tests/ on every push/PR touching scripts/
+
+tests/                         # pytest coverage for every pure-logic function
+  test_scoring.py              # categorization + Step-8 scoring
+  test_video.py                # FFmpeg/ffprobe argument-list construction, scene
+                                # splitting, run_id sanitization
+  test_daily_report.py         # markdown report assembly
+  test_gemini.py               # Gemini response-shape extraction
+  test_util.py                 # run_id / date formatting
 
 scripts/
   common/
@@ -193,3 +202,22 @@ you want — this isn't secret, so it's a variable, not a secret).
   generous free minutes on public repos (unlimited) and a monthly free allowance
   on private repos; Supabase's free tier (500MB database, generous request
   limits) comfortably covers this workload.
+- **Hardening**: both pipeline workflows set `permissions: contents: read`
+  (least privilege — nothing here needs to write to the repo) and a
+  `concurrency` group with `cancel-in-progress: false`, so a scheduled run
+  queues behind a still-running previous one instead of either overlapping
+  with it (which could race on `mark_used`/report reads) or getting killed
+  mid-upload if the next cron fires while a Short is still rendering.
+- **Tests**: `tests/` has pytest coverage for every pure-logic function in this
+  system — trend categorization/scoring, FFmpeg argument-list construction,
+  scene splitting, `run_id` sanitization, markdown report assembly, and Gemini
+  response-shape extraction (23 tests total). `tests.yml` runs them on every
+  push/PR touching `scripts/` or `tests/`. Run them yourself with:
+  ```bash
+  pip install -r requirements.txt pytest
+  pytest
+  ```
+  These are unit tests for logic that doesn't need live infrastructure (no
+  network, no database, no ffmpeg binary required) — they don't replace the
+  watched first run in section 4, which is the only way to verify the parts
+  that *do* need real Postgres/Gemini/FFmpeg/YouTube.

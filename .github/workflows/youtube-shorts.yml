@@ -6,6 +6,19 @@ on:
     - cron: "0 9,14,19 * * *"
   workflow_dispatch: {}
 
+# Least-privilege default - this job only calls external APIs and Postgres, it
+# never needs to write to the repo.
+permissions:
+  contents: read
+
+# Queue instead of running concurrently if one run is still uploading when the
+# next cron fires - two overlapping runs could both grab the same candidate
+# topic before either marks it 'used'. Never cancel-in-progress: a Short mid-
+# upload should finish, not get killed by the next scheduled trigger.
+concurrency:
+  group: youtube-shorts-pipeline
+  cancel-in-progress: false
+
 jobs:
   publish-short:
     runs-on: ubuntu-latest
