@@ -68,7 +68,7 @@ def score_topics(raw_items: list[dict], run_id: str) -> list[dict]:
         )
         row = {
             "run_id": run_id, "title": title[:250], "category": category,
-            "source": t["source"], "window": t["window"],
+            "source": t["source"], "trend_window": t["window"],  # DB column is trend_window ("window" is a reserved SQL keyword)
             "demand_score": demand, "profitability_score": profitability,
             "difficulty_score": difficulty, "competition_score": competition,
             "seo_score": seo, "viral_score": viral, "automation_score": automation,

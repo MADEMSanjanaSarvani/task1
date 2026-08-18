@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS trend_topics (
     title               TEXT NOT NULL,
     category            TEXT NOT NULL, -- e.g. Freelancing, AI Tools, SaaS, Side Hustles...
     source              TEXT NOT NULL CHECK (source IN ('google_trends','reddit','product_hunt','hacker_news','github_trending','x_twitter','linkedin','medium','indie_hackers','youtube','news','other')),
-    window              TEXT NOT NULL CHECK (window IN ('24h','7d','30d')),
+    trend_window        TEXT NOT NULL CHECK (trend_window IN ('24h','7d','30d')), -- "window" is a reserved SQL keyword, can't be used as a bare column name
     demand_score        NUMERIC(5,2),
     profitability_score NUMERIC(5,2),
     difficulty_score    NUMERIC(5,2),
