@@ -75,6 +75,13 @@ def mark_used(conn, topic_id: int):
     db.execute(conn, "UPDATE trend_topics SET status = 'used' WHERE id = %s", (topic_id,))
 
 
+def reviewed_video_count(conn) -> int:
+    rows = db.select_rows(
+        conn, "SELECT COUNT(*) AS n FROM published_videos WHERE status IN ('scheduled', 'published')"
+    )
+    return rows[0]["n"] if rows else 0
+
+
 def write_script_with_fact_check(topic: dict) -> dict:
     script = gemini.generate_json(
         SCRIPT_SYSTEM_PROMPT,
@@ -244,34 +251,45 @@ def main(conn):
             temperature=0.6,
         )
 
-        # Uploaded PRIVATE with a scheduled publishAt, not straight to public - this is
-        # the review window: watch it in YouTube Studio before it goes live, and edit
-        # its privacy back to Private there if you don't want that day's Short to post.
-        # Shrink REVIEW_BUFFER_HOURS (down toward 1) once you trust the output quality
-        # and want this closer to fully hands-off.
+        # The first SHORTS_MANUAL_REVIEW_COUNT videos are uploaded PRIVATE with a
+        # scheduled publishAt - a review window to watch each one in YouTube Studio
+        # before it goes live (edit its privacy back to Private there to cancel it).
+        # After that count is reached, later Shorts publish straight to public -
+        # no code change needed to flip back, just adjust the count/hours variables.
+        manual_review_count = int(os.environ.get("SHORTS_MANUAL_REVIEW_COUNT", "5"))
         review_buffer_hours = float(os.environ.get("SHORTS_REVIEW_BUFFER_HOURS", "24"))
-        publish_at_dt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=review_buffer_hours)
-        publish_at = publish_at_dt.isoformat()
+        needs_review = reviewed_video_count(conn) < manual_review_count
+
+        if needs_review:
+            publish_at_dt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=review_buffer_hours)
+            publish_at = publish_at_dt.isoformat()
+        else:
+            publish_at_dt = datetime.datetime.now(datetime.timezone.utc)
+            publish_at = None
+
         video_id = upload_video(final_path, seo["seo_title"], seo.get("description", ""), seo.get("tags", []), publish_at)
         set_thumbnail(video_id, thumb_path)
-        log.info("Uploaded to YouTube (private, scheduled): video_id=%s publish_at=%s", video_id, publish_at)
+        log.info("Uploaded to YouTube: video_id=%s publish_at=%s", video_id, publish_at)
 
         db.insert_rows(conn, "published_videos", [{
             "run_id": topic["run_id"], "topic_id": topic["id"], "youtube_video_id": video_id,
             "title": script["title"], "script": script["full_script"],
             "fact_check_confidence": script["fact_check"]["confidence"], "rewrite_count": script["rewrite_count"],
             "thumbnail_status": "set", "video_url": f"https://youtube.com/shorts/{video_id}",
-            "duration_seconds": duration, "status": "scheduled",
+            "duration_seconds": duration, "status": "scheduled" if needs_review else "published",
             "published_at": publish_at_dt,
         }])
 
-        notify_discord(
-            f"🎬 New Short rendered: **{script['title']}**\n"
-            f"Preview it (private): https://studio.youtube.com/video/{video_id}/edit\n"
-            f"It auto-publishes at {publish_at} unless you edit its privacy back to "
-            "Private in Studio before then. Want different music? Download it from "
-            "Studio, remix locally, then re-upload as a fresh video and delete this one."
-        )
+        if needs_review:
+            notify_discord(
+                f"🎬 New Short rendered: **{script['title']}**\n"
+                f"Preview it (private): https://studio.youtube.com/video/{video_id}/edit\n"
+                f"It auto-publishes at {publish_at} unless you edit its privacy back to "
+                "Private in Studio before then. Want different music? Download it from "
+                "Studio, remix locally, then re-upload as a fresh video and delete this one."
+            )
+        else:
+            notify_discord(f"✅ Published: {script['title']}\nhttps://youtube.com/shorts/{video_id}")
     finally:
         shutil.rmtree(render_dir, ignore_errors=True)
 

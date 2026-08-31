@@ -21,15 +21,22 @@ def get_client():
     return build("youtube", "v3", credentials=creds)
 
 
-def upload_video(video_path: str, title: str, description: str, tags: list[str], publish_at_iso: str) -> str:
-    """Uploads as private with a scheduled publishAt buffer. Returns the video id."""
+def upload_video(video_path: str, title: str, description: str, tags: list[str], publish_at_iso: str | None) -> str:
+    """Uploads as private with a scheduled publishAt buffer, or straight to public
+    when publish_at_iso is None (skips the review window). Returns the video id."""
     youtube = get_client()
+    status = {"selfDeclaredMadeForKids": False}
+    if publish_at_iso:
+        status["privacyStatus"] = "private"
+        status["publishAt"] = publish_at_iso
+    else:
+        status["privacyStatus"] = "public"
     body = {
         "snippet": {
             "title": title[:100], "description": description, "tags": tags,
             "categoryId": "27",  # Education - matches "AI tools / freelancing / side hustles" content
         },
-        "status": {"privacyStatus": "private", "publishAt": publish_at_iso, "selfDeclaredMadeForKids": False},
+        "status": status,
     }
     media = MediaFileUpload(video_path, mimetype="video/mp4", resumable=True)
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)

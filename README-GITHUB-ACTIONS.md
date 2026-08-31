@@ -181,18 +181,21 @@ you want — this isn't secret, so it's a variable, not a secret).
 
 ## 4a. Review-before-publish (Shorts)
 
-Every rendered Short is uploaded to YouTube as **Private** with a scheduled
-`publishAt` (default 24h out, via the `SHORTS_REVIEW_BUFFER_HOURS` repo
-variable), not published immediately. Each run posts a Discord message with a
-direct YouTube Studio preview link — watch it there before it goes live, and
-edit its privacy back to Private in Studio if you don't want that day's Short
-to post. Want different music than the auto-mixed track? Download it from
-Studio, remix locally, then upload the remix as a separate video and delete
-the private one — YouTube doesn't allow replacing a video's file in place.
+The first `SHORTS_MANUAL_REVIEW_COUNT` Shorts (default **5**) are uploaded to
+YouTube as **Private** with a scheduled `publishAt` (default 24h out, via the
+`SHORTS_REVIEW_BUFFER_HOURS` repo variable) instead of going public
+immediately. Each of those runs posts a Discord message with a direct YouTube
+Studio preview link — watch it there before it goes live, and edit its
+privacy back to Private in Studio if you don't want that one to post. Want
+different music than the auto-mixed track? Download it from Studio, remix
+locally, then upload the remix as a separate video and delete the private one
+— YouTube doesn't allow replacing a video's file in place.
 
-Once you trust the output quality and want this closer to hands-off, lower
-`SHORTS_REVIEW_BUFFER_HOURS` (Settings → Secrets and variables → Actions →
-Variables) toward 1 — there's no code change needed.
+Once `SHORTS_MANUAL_REVIEW_COUNT` videos have been scheduled/published, every
+Short after that publishes straight to public automatically — no review step,
+no code change needed. Both are repo **variables** (Settings → Secrets and
+variables → Actions → Variables tab), so you can raise the review count again
+later, or shrink `SHORTS_REVIEW_BUFFER_HOURS`, any time.
 
 ---
 

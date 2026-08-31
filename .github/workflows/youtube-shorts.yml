@@ -47,6 +47,7 @@ jobs:
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           BG_MUSIC_URL: ${{ secrets.BG_MUSIC_URL }}
           SHORTS_REVIEW_BUFFER_HOURS: ${{ vars.SHORTS_REVIEW_BUFFER_HOURS || '24' }}
+          SHORTS_MANUAL_REVIEW_COUNT: ${{ vars.SHORTS_MANUAL_REVIEW_COUNT || '5' }}
           RENDER_FONT_PATH: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
