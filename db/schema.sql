@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS published_videos (
     thumbnail_status  TEXT,
     video_url         TEXT,
     duration_seconds  NUMERIC(6,2),
-    status            TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('rendering','published','failed','archived')),
+    status            TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('rendering','scheduled','published','failed','archived')),
     published_at      TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );

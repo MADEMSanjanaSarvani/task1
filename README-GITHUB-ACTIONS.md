@@ -179,6 +179,23 @@ you want — this isn't secret, so it's a variable, not a secret).
 
 ---
 
+## 4a. Review-before-publish (Shorts)
+
+Every rendered Short is uploaded to YouTube as **Private** with a scheduled
+`publishAt` (default 24h out, via the `SHORTS_REVIEW_BUFFER_HOURS` repo
+variable), not published immediately. Each run posts a Discord message with a
+direct YouTube Studio preview link — watch it there before it goes live, and
+edit its privacy back to Private in Studio if you don't want that day's Short
+to post. Want different music than the auto-mixed track? Download it from
+Studio, remix locally, then upload the remix as a separate video and delete
+the private one — YouTube doesn't allow replacing a video's file in place.
+
+Once you trust the output quality and want this closer to hands-off, lower
+`SHORTS_REVIEW_BUFFER_HOURS` (Settings → Secrets and variables → Actions →
+Variables) toward 1 — there's no code change needed.
+
+---
+
 ## 5. Notes specific to this implementation
 
 - **Idempotent-ish reruns**: `02_content_generation.py`, `03_business_student_viral.py`,

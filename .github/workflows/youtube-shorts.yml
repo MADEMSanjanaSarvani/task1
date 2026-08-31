@@ -2,8 +2,10 @@ name: YouTube Shorts Pipeline
 
 on:
   schedule:
-    # 09:00, 14:00, 19:00 UTC - adjust to your timezone's equivalent UTC hours.
-    - cron: "0 9,14,19 * * *"
+    # 13:00 UTC = 18:30 IST daily - one Short/day. Uploaded PRIVATE with a 24h
+    # scheduled publish (see SHORTS_REVIEW_BUFFER_HOURS below), so there's a full
+    # day to review each one in YouTube Studio before it goes public.
+    - cron: "0 13 * * *"
   workflow_dispatch: {}
 
 # Least-privilege default - this job only calls external APIs and Postgres, it
@@ -44,6 +46,7 @@ jobs:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           BG_MUSIC_URL: ${{ secrets.BG_MUSIC_URL }}
+          SHORTS_REVIEW_BUFFER_HOURS: ${{ vars.SHORTS_REVIEW_BUFFER_HOURS || '24' }}
           RENDER_FONT_PATH: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}

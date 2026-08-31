@@ -2,7 +2,7 @@ name: Daily Content Pipeline
 
 on:
   schedule:
-    # 06:00 UTC daily - adjust to your timezone's equivalent UTC hour.
+    # 06:00 UTC = 11:30 IST daily.
     - cron: "0 6 * * *"
   workflow_dispatch: {}
 

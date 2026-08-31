@@ -244,21 +244,34 @@ def main(conn):
             temperature=0.6,
         )
 
-        publish_at = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)).isoformat()
+        # Uploaded PRIVATE with a scheduled publishAt, not straight to public - this is
+        # the review window: watch it in YouTube Studio before it goes live, and edit
+        # its privacy back to Private there if you don't want that day's Short to post.
+        # Shrink REVIEW_BUFFER_HOURS (down toward 1) once you trust the output quality
+        # and want this closer to fully hands-off.
+        review_buffer_hours = float(os.environ.get("SHORTS_REVIEW_BUFFER_HOURS", "24"))
+        publish_at_dt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=review_buffer_hours)
+        publish_at = publish_at_dt.isoformat()
         video_id = upload_video(final_path, seo["seo_title"], seo.get("description", ""), seo.get("tags", []), publish_at)
         set_thumbnail(video_id, thumb_path)
-        log.info("Uploaded to YouTube: video_id=%s", video_id)
+        log.info("Uploaded to YouTube (private, scheduled): video_id=%s publish_at=%s", video_id, publish_at)
 
         db.insert_rows(conn, "published_videos", [{
             "run_id": topic["run_id"], "topic_id": topic["id"], "youtube_video_id": video_id,
             "title": script["title"], "script": script["full_script"],
             "fact_check_confidence": script["fact_check"]["confidence"], "rewrite_count": script["rewrite_count"],
             "thumbnail_status": "set", "video_url": f"https://youtube.com/shorts/{video_id}",
-            "duration_seconds": duration, "status": "published",
-            "published_at": datetime.datetime.now(datetime.timezone.utc),
+            "duration_seconds": duration, "status": "scheduled",
+            "published_at": publish_at_dt,
         }])
 
-        notify_discord(f"✅ Published: {script['title']}\nhttps://youtube.com/shorts/{video_id}")
+        notify_discord(
+            f"🎬 New Short rendered: **{script['title']}**\n"
+            f"Preview it (private): https://studio.youtube.com/video/{video_id}/edit\n"
+            f"It auto-publishes at {publish_at} unless you edit its privacy back to "
+            "Private in Studio before then. Want different music? Download it from "
+            "Studio, remix locally, then re-upload as a fresh video and delete this one."
+        )
     finally:
         shutil.rmtree(render_dir, ignore_errors=True)
 
