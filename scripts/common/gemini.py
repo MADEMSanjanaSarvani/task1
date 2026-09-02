@@ -18,7 +18,7 @@ class GeminiError(Exception):
 
 
 def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7,
-                   max_retries: int = 3, timeout: int = 240) -> dict:
+                   max_retries: int = 5, timeout: int = 240) -> dict:
     """Call Gemini with responseMimeType=application/json and return the parsed object.
 
     Raises GeminiError if the API call fails after retries, or if the response
@@ -47,10 +47,13 @@ def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7
     for attempt in range(1, max_retries + 1):
         try:
             resp = requests.post(url, params={"key": api_key}, json=body, timeout=timeout)
-            if resp.status_code == 429:
-                # rate limited - back off and retry
-                last_err = GeminiError(f"rate limited (429): {resp.text[:300]}")
-                time.sleep(5 * attempt)
+            # 429 (rate limited) and 5xx (transient server-side overload, e.g. the
+            # "-latest" preview endpoints under load) both warrant a longer backoff
+            # than a plain retry - a few seconds isn't enough for the server to recover.
+            if resp.status_code == 429 or resp.status_code >= 500:
+                last_err = GeminiError(f"transient error ({resp.status_code}): {resp.text[:300]}")
+                if attempt < max_retries:
+                    time.sleep(10 * attempt)
                 continue
             resp.raise_for_status()
             data = resp.json()
