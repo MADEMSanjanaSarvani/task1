@@ -18,7 +18,7 @@ class GeminiError(Exception):
 
 
 def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7,
-                   max_retries: int = 3, timeout: int = 120) -> dict:
+                   max_retries: int = 3, timeout: int = 240) -> dict:
     """Call Gemini with responseMimeType=application/json and return the parsed object.
 
     Raises GeminiError if the API call fails after retries, or if the response
