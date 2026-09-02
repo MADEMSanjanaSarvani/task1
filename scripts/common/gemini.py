@@ -18,7 +18,7 @@ class GeminiError(Exception):
 
 
 def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7,
-                   max_retries: int = 3, timeout: int = 60) -> dict:
+                   max_retries: int = 3, timeout: int = 120) -> dict:
     """Call Gemini with responseMimeType=application/json and return the parsed object.
 
     Raises GeminiError if the API call fails after retries, or if the response
@@ -27,13 +27,20 @@ def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7
     responseMimeType provides).
     """
     api_key = os.environ["GEMINI_API_KEY"]
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    model = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
     url = GEMINI_URL_TMPL.format(model=model)
 
     body = {
         "systemInstruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
+        # thinkingBudget=0 disables extended reasoning - this pipeline only needs
+        # structured JSON output, not multi-step reasoning, and thinking mode adds
+        # significant latency/cost for no benefit here. Some models ignore this
+        # field silently if they don't support it, which is fine.
+        "generationConfig": {
+            "temperature": temperature, "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }
 
     last_err = None
