@@ -22,13 +22,13 @@ from common.youtube import set_thumbnail, upload_video
 
 log = logging.getLogger("05_youtube_shorts")
 
-# Committed once, reused by every render - see assets/characters/README (or the
-# repo's assets/characters/ dir directly) for how these were generated.
+# Committed once, reused by every render - see the repo's assets/characters/
+# dir for the portraits themselves. Whoever's speaking gets a pulsing glow
+# border (see common/video.py) rather than a mouth animation, so only one
+# portrait per character is needed, not a matched pair of expressions.
 CHAR_ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "characters")
-MAX_IDLE = os.path.join(CHAR_ASSETS_DIR, "max_idle.png")
-MAX_TALK = os.path.join(CHAR_ASSETS_DIR, "max_talk.png")
-NOVA_IDLE = os.path.join(CHAR_ASSETS_DIR, "nova_idle.png")
-NOVA_TALK = os.path.join(CHAR_ASSETS_DIR, "nova_talk.png")
+MAX_PORTRAIT = os.path.join(CHAR_ASSETS_DIR, "max.png")
+NOVA_PORTRAIT = os.path.join(CHAR_ASSETS_DIR, "nova.png")
 
 VOICE_BY_SPEAKER = {"Max": tts.MAX_VOICE, "Nova": tts.NOVA_VOICE}
 
@@ -169,7 +169,7 @@ def build_dialogue_video(scenes: list[dict], render_dir: str) -> str:
         duration = video.probe_duration(audio_path) + 0.4
 
         video.render_talking_scene(
-            speaker, MAX_IDLE, MAX_TALK, NOVA_IDLE, NOVA_TALK,
+            speaker, MAX_PORTRAIT, NOVA_PORTRAIT,
             caption_path, audio_path, duration, processed_path, font_path,
         )
         processed_paths.append(processed_path)

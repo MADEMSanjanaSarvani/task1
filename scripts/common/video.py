@@ -20,15 +20,13 @@ FONT_PATH_DEFAULT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"  # ap
 CANVAS_W, CANVAS_H = 1080, 1920
 PANEL_H = CANVAS_H // 2
 CHAR_DISPLAY_W, CHAR_DISPLAY_H = 500, 520
-CHAR_X = (CANVAS_W - CHAR_DISPLAY_W) // 2
 MAX_PANEL_Y, NOVA_PANEL_Y = 0, PANEL_H
-MAX_CHAR_Y = MAX_PANEL_Y + (PANEL_H - CHAR_DISPLAY_H) // 2
-NOVA_CHAR_Y = NOVA_PANEL_Y + (PANEL_H - CHAR_DISPLAY_H) // 2
 MAX_BG, NOVA_BG = "0x0B1220", "0x2E0C2E"
 MAX_ACCENT, NOVA_ACCENT = "0xF59E0B", "0xEC4899"
-# fraction of each 0.4s cycle the "talking" frame is shown, alternating with idle -
-# a classic cutout mouth-flap effect built from just two static frames per character.
-MOUTH_FLAP_ENABLE = "lt(mod(t,0.4),0.18)"
+# fraction of each 0.4s cycle the brighter glow ring is shown on top of the
+# speaking panel's static border - a pulsing "who's talking" indicator that
+# only needs one portrait per character, not a matched mouth-open/closed pair.
+PULSE_ENABLE = "lt(mod(t,0.4),0.18)"
 
 
 def _run(args: list[str]):
@@ -142,14 +140,14 @@ def build_dialogue_scenes(dialogue: list[dict], max_scenes: int = 14) -> list[di
     return scenes
 
 
-def build_talking_scene_args(speaker: str, max_idle_path: str, max_talk_path: str,
-                              nova_idle_path: str, nova_talk_path: str, caption_path: str,
+def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, caption_path: str,
                               audio_path: str, duration: float, out_path: str,
                               font_path: str = FONT_PATH_DEFAULT) -> list[str]:
-    """Builds one dialogue-turn scene: two character panels on a fixed-color
-    background, the speaking character's mouth flapping between its idle/talk
-    frames, a highlighted border on whichever panel is speaking, and the line's
-    caption burned in - with the line's own TTS audio as this scene's soundtrack."""
+    """Builds one dialogue-turn scene: two character portraits on a fixed-color
+    background (each scaled to fit its panel, aspect ratio preserved regardless
+    of the source image's own dimensions), a pulsing glow ring on whichever
+    panel is speaking, and the line's caption burned in - with the line's own
+    TTS audio as this scene's soundtrack."""
     if speaker not in ("Max", "Nova"):
         raise ValueError(f"unknown speaker: {speaker!r}")
 
@@ -163,51 +161,51 @@ def build_talking_scene_args(speaker: str, max_idle_path: str, max_talk_path: st
         f"drawbox=x=0:y={PANEL_H}:w={CANVAS_W}:h={PANEL_H}:color={NOVA_BG}:t=fill,"
         f"drawbox=x=0:y={PANEL_H - 6}:w={CANVAS_W}:h=12:color=0xF59E0B:t=fill,"
         f"drawbox=x=6:y={highlight_y + 6}:w={CANVAS_W - 12}:h={PANEL_H - 12}:"
-        f"color={highlight_color}:t=14[bg]"
+        f"color={highlight_color}:t=14,"
+        f"drawbox=x=2:y={highlight_y + 2}:w={CANVAS_W - 4}:h={PANEL_H - 4}:"
+        f"color=white@0.6:t=6:enable='{PULSE_ENABLE}'[bg]"
     )
 
-    max_overlay = f"[bg][1:v]overlay=x={CHAR_X}:y={MAX_CHAR_Y}[m1]"
-    if speaking_max:
-        max_overlay += f";[m1][2:v]overlay=x={CHAR_X}:y={MAX_CHAR_Y}:enable='{MOUTH_FLAP_ENABLE}'[m2]"
-    else:
-        max_overlay += ";[m1]null[m2]"
-
-    nova_overlay = f"[m2][3:v]overlay=x={CHAR_X}:y={NOVA_CHAR_Y}[n1]"
-    if not speaking_max:
-        nova_overlay += f";[n1][4:v]overlay=x={CHAR_X}:y={NOVA_CHAR_Y}:enable='{MOUTH_FLAP_ENABLE}'[n2]"
-    else:
-        nova_overlay += ";[n1]null[n2]"
+    scale_chars = (
+        f"[1:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease[maxc];"
+        f"[2:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease[novac]"
+    )
+    # centered by expression (not a fixed CHAR_X/Y) since force_original_aspect_ratio
+    # doesn't guarantee the scaled image fills CHAR_DISPLAY_W x CHAR_DISPLAY_H exactly -
+    # a portrait narrower or shorter than the box would otherwise land off-center.
+    max_center_y = f"({MAX_PANEL_Y}+({PANEL_H}-overlay_h)/2)"
+    nova_center_y = f"({NOVA_PANEL_Y}+({PANEL_H}-overlay_h)/2)"
+    overlays = (
+        f"[bg][maxc]overlay=x=(main_w-overlay_w)/2:y='{max_center_y}'[m1];"
+        f"[m1][novac]overlay=x=(main_w-overlay_w)/2:y='{nova_center_y}'[n1]"
+    )
 
     caption = (
-        f"[n2]drawtext=fontfile={font_path}:textfile={caption_path}:fontcolor=white:"
+        f"[n1]drawtext=fontfile={font_path}:textfile={caption_path}:fontcolor=white:"
         f"fontsize=46:x=(w-text_w)/2:y={caption_y}:box=1:boxcolor=black@0.55:boxborderw=20[vout]"
     )
 
-    filter_complex = ";".join([bg, max_overlay, nova_overlay, caption])
+    filter_complex = ";".join([bg, scale_chars, overlays, caption])
 
     return [
         "ffmpeg", "-y",
         "-f", "lavfi", "-i", f"color=c=black:s={CANVAS_W}x{CANVAS_H}",
-        "-loop", "1", "-i", max_idle_path,
-        "-loop", "1", "-i", max_talk_path,
-        "-loop", "1", "-i", nova_idle_path,
-        "-loop", "1", "-i", nova_talk_path,
+        "-loop", "1", "-i", max_path,
+        "-loop", "1", "-i", nova_path,
         "-i", audio_path,
         "-filter_complex", filter_complex,
-        "-map", "[vout]", "-map", "5:a",
+        "-map", "[vout]", "-map", "3:a",
         "-t", str(duration),
         "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
         "-c:a", "aac", out_path,
     ]
 
 
-def render_talking_scene(speaker: str, max_idle_path: str, max_talk_path: str,
-                          nova_idle_path: str, nova_talk_path: str, caption_path: str,
+def render_talking_scene(speaker: str, max_path: str, nova_path: str, caption_path: str,
                           audio_path: str, duration: float, out_path: str,
                           font_path: str = FONT_PATH_DEFAULT):
-    _run(build_talking_scene_args(speaker, max_idle_path, max_talk_path, nova_idle_path,
-                                   nova_talk_path, caption_path, audio_path, duration,
-                                   out_path, font_path))
+    _run(build_talking_scene_args(speaker, max_path, nova_path, caption_path,
+                                   audio_path, duration, out_path, font_path))
 
 
 def safe_run_id(run_id: str) -> str:
