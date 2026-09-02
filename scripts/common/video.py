@@ -167,8 +167,15 @@ def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, captio
     )
 
     scale_chars = (
-        f"[1:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease[maxc];"
-        f"[2:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease[novac]"
+        # character portraits are expected on a plain white background (not
+        # transparent) - colorkey strips it to alpha here. It overwrites any
+        # existing alpha channel wholesale, so don't feed this a PNG that's
+        # already transparent; every portrait in assets/characters/ is flat
+        # RGB on white, by design, to keep this assumption simple and true.
+        f"[1:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease,"
+        f"colorkey=0xFFFFFF:0.12:0.08[maxc];"
+        f"[2:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease,"
+        f"colorkey=0xFFFFFF:0.12:0.08[novac]"
     )
     # centered by expression (not a fixed CHAR_X/Y) since force_original_aspect_ratio
     # doesn't guarantee the scaled image fills CHAR_DISPLAY_W x CHAR_DISPLAY_H exactly -
