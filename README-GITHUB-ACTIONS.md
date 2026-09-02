@@ -56,6 +56,7 @@ scripts/
     sync_destinations.py # Google Sheets / Airtable / Notion sync (best-effort)
     notify.py            # Discord + email alerts, failed_runs logger
     video.py             # FFmpeg/ffprobe wrappers (argument lists, not shell strings)
+    tts.py               # free TTS (edge-tts) for the Max & Nova dialogue voices
     youtube.py           # YouTube Data API v3, refresh-token auth
     util.py              # run_id generation, the run_main() error-handling decorator
   01_trend_research.py
@@ -64,6 +65,11 @@ scripts/
   04_daily_report.py
   05_youtube_shorts.py
   setup_youtube_oauth.py # run ONCE, locally — see section 5
+
+assets/
+  characters/            # Max & Nova - two recurring animated hosts (idle/talk
+                          # frames per character), committed once, reused every Short
+  bg-music.mp3            # royalty-free background track, ducked under the dialogue
 ```
 
 `daily-content-pipeline.yml` runs 4 jobs with explicit dependencies (mirroring the
@@ -88,13 +94,22 @@ the Discord alert.
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. In the SQL Editor, run `db/schema.sql` (unchanged from the n8n version).
-3. Get the connection string: **Project Settings → Database → Connection string**
-   (use the "URI" / session-pooler form). Save it as the `SUPABASE_DB_URL` secret.
+3. Get the connection string: click **Connect** (top of the dashboard) and copy
+   the **Transaction pooler** URI, not the direct connection string. GitHub
+   Actions runners have no outbound IPv6, and Supabase's direct
+   `db.<ref>.supabase.co` host is IPv6-only - connecting to it fails with
+   `Network is unreachable`. The pooler host (`aws-0-<region>.pooler.supabase.com`)
+   supports IPv4. Replace `[YOUR-PASSWORD]` in the string with your DB password,
+   URL-encoding special characters (`@` → `%40`), then save it as `SUPABASE_DB_URL`.
 
 ### 3b. Gemini
 
 Get a free API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-Save it as `GEMINI_API_KEY`.
+Save it as `GEMINI_API_KEY`. For the `GEMINI_MODEL` variable (section 3f), use
+an alias like `gemini-flash-latest` rather than a pinned dated model name -
+pinned models get deprecated and start 404ing; if the `-latest` alias is
+returning transient 503 "high demand" errors, switch to a named stable release
+instead (e.g. `gemini-2.5-flash`, not a `-preview` or `-latest` one).
 
 ### 3c. Google Sheets (service account, not OAuth)
 
@@ -128,9 +143,11 @@ GitHub Actions can't do interactive OAuth, so Sheets access uses a service accou
 
 ### 3e. Everything else — same free services as the n8n version
 
-Reddit, Product Hunt, GitHub, NewsAPI, YouTube Data API, Pexels, Pixabay, Discord,
-Airtable, Notion: same signup process as documented in `README.md` sections 3-4
-— only *where you paste the key* changes (a GitHub secret instead of `.env`).
+Reddit, Product Hunt, GitHub, NewsAPI, YouTube Data API, Discord, Airtable,
+Notion: same signup process as documented in `README.md` sections 3-4 — only
+*where you paste the key* changes (a GitHub secret instead of `.env`). Pexels/
+Pixabay aren't needed here — this version's Shorts use animated characters,
+not stock footage.
 
 ### 3f. Add secrets to the repo
 
@@ -149,15 +166,19 @@ of the following. (Names match exactly what the workflow YAML files reference.)
 | `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_SHEETS_SPREADSHEET_ID` | 04 |
 | `AIRTABLE_BASE_ID`, `AIRTABLE_API_KEY` | 04 |
 | `NOTION_TOKEN`, `NOTION_DATABASE_ID_TRENDS`, `NOTION_DATABASE_ID_PRODUCTS`, `NOTION_DATABASE_ID_CONTENT`, `NOTION_DATABASE_ID_REPORTS` | 04 |
-| `PEXELS_API_KEY`, `PIXABAY_API_KEY` | 05 |
 | `BG_MUSIC_URL` | 05 (a direct link to a royalty-free track — YouTube Audio Library / Pixabay Music / freesound.org) |
 | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` | 05 |
 | `DISCORD_WEBHOOK_URL` | all (alerts) |
 | `ALERT_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | all, optional (email alerts alongside Discord — skip these 5 if Discord alone is enough) |
 
+`PEXELS_API_KEY`/`PIXABAY_API_KEY` are no longer used — 05 renders two
+recurring animated hosts (Max & Nova, `assets/characters/`) instead of stock
+footage, so no stock-footage source is needed any more; you can remove those
+two secrets if you'd set them up earlier.
+
 Also add one repository **variable** (Settings → Secrets and variables → Actions →
-Variables tab, not Secrets): `GEMINI_MODEL` = `gemini-2.0-flash` (or whatever model
-you want — this isn't secret, so it's a variable, not a secret).
+Variables tab, not Secrets): `GEMINI_MODEL` = `gemini-flash-latest` (or a
+pinned stable release like `gemini-2.5-flash` — see the note in section 3b).
 
 ---
 
@@ -208,9 +229,12 @@ later, or shrink `SHORTS_REVIEW_BUFFER_HOURS`, any time.
   without re-running the whole pipeline, and it'll operate on whatever's currently
   in the database.
 - **Timeouts**: `youtube-shorts.yml` sets `timeout-minutes: 30` since Shorts
-  generation (Gemini calls + stock footage downloads + FFmpeg encoding + upload)
+  generation (Gemini calls + per-line TTS synthesis + FFmpeg encoding + upload)
   is the slowest single run in the system. GitHub Actions' default job timeout is
   6 hours, generous enough that this is just a safety net, not a real constraint.
+- **TTS**: `common/tts.py` uses `edge-tts`, an unofficial wrapper around
+  Microsoft Edge's read-aloud service — free, no API key, but not an officially
+  supported API. If it ever breaks, that's the one module to replace.
 - **Artifacts**: the daily pipeline uploads the blog markdown and report
   files as workflow run artifacts (30-day retention by default) in addition to
   writing them to Postgres — handy for browsing a specific day's output without

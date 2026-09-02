@@ -62,6 +62,73 @@ def test_thumbnail_args_include_drawtext():
     assert "/r/1/thumb.jpg" in args
 
 
+def test_build_dialogue_scenes_normalizes_turns():
+    dialogue = [
+        {"speaker": "Max", "line": "AI tools are booming right now."},
+        {"speaker": "Nova", "line": "Here's how you can cash in on it."},
+    ]
+    scenes = video.build_dialogue_scenes(dialogue)
+    assert len(scenes) == 2
+    assert scenes[0] == {"index": 0, "speaker": "Max", "text": "AI tools are booming right now."}
+    assert scenes[1]["speaker"] == "Nova"
+
+
+def test_build_dialogue_scenes_drops_invalid_turns():
+    dialogue = [
+        {"speaker": "Max", "line": "Valid line."},
+        {"speaker": "Someone Else", "line": "Unknown speaker, should be dropped."},
+        {"speaker": "Nova", "line": ""},
+        {"speaker": "Nova", "line": "Also valid."},
+    ]
+    scenes = video.build_dialogue_scenes(dialogue)
+    assert len(scenes) == 2
+    assert [s["speaker"] for s in scenes] == ["Max", "Nova"]
+
+
+def test_build_dialogue_scenes_caps_at_max_scenes():
+    dialogue = [{"speaker": "Max" if i % 2 == 0 else "Nova", "line": f"Line {i}"} for i in range(20)]
+    scenes = video.build_dialogue_scenes(dialogue, max_scenes=10)
+    assert len(scenes) == 10
+
+
+def test_talking_scene_args_are_argv_list_not_shell_string():
+    args = video.build_talking_scene_args(
+        "Max", "/a/max_idle.png", "/a/max_talk.png", "/a/nova_idle.png", "/a/nova_talk.png",
+        "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+    )
+    assert args[0] == "ffmpeg"
+    assert "/r/1/voice.mp3" in args
+    assert "/r/1/out.mp4" in args
+    # ";" is expected *inside* the -filter_complex value (ffmpeg's own filter-graph
+    # chaining syntax) - it's still a single argv element, never shell-parsed, since
+    # subprocess.run(args, shell=False) never invokes a shell. "&&"/"|" would only
+    # matter if this were built as a shell string, which it never is here.
+    assert all("&&" not in a and "|" not in a for a in args)
+
+
+def test_talking_scene_args_map_audio_from_voice_input():
+    args = video.build_talking_scene_args(
+        "Nova", "/a/max_idle.png", "/a/max_talk.png", "/a/nova_idle.png", "/a/nova_talk.png",
+        "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+    )
+    assert "5:a" in args  # the audio input (index 5: color + 4 char images + audio)
+
+
+def test_talking_scene_args_rejects_unknown_speaker():
+    with pytest.raises(ValueError):
+        video.build_talking_scene_args(
+            "Bob", "/a/max_idle.png", "/a/max_talk.png", "/a/nova_idle.png", "/a/nova_talk.png",
+            "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+        )
+
+
+def test_mix_music_args_mix_voice_and_ducked_music_not_replace():
+    args = video.build_mix_music_args("/r/1/voiced.mp4", "/r/1/music.mp3", "/r/1/final.mp4")
+    filter_arg = args[args.index("-filter_complex") + 1]
+    assert "amix" in filter_arg
+    assert "[0:a]" in filter_arg  # the original voice track is still referenced, not discarded
+
+
 def test_safe_run_id_passes_through_clean_input():
     assert video.safe_run_id("20260727-123") == "20260727-123"
 

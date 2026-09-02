@@ -1,5 +1,6 @@
 requests==2.33.1
 psycopg2-binary==2.9.10
+edge-tts==7.2.8
 gspread==6.1.4
 google-auth==2.36.0
 google-auth-oauthlib==1.2.1

@@ -23,7 +23,7 @@ concurrency:
 env:
   SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-  GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.0-flash' }}
+  GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-flash-latest' }}
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
   SMTP_HOST: ${{ secrets.SMTP_HOST }}

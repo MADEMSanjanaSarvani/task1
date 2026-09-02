@@ -42,9 +42,7 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.0-flash' }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-flash-latest' }}
           BG_MUSIC_URL: ${{ secrets.BG_MUSIC_URL }}
           SHORTS_REVIEW_BUFFER_HOURS: ${{ vars.SHORTS_REVIEW_BUFFER_HOURS || '24' }}
           SHORTS_MANUAL_REVIEW_COUNT: ${{ vars.SHORTS_MANUAL_REVIEW_COUNT || '5' }}

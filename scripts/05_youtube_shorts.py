@@ -1,10 +1,11 @@
-"""Workflow 05 - YouTube Shorts Pipeline (3x/day, $0 stack).
+"""Workflow 05 - YouTube Shorts Pipeline (1x/day, $0 stack).
 
 Picks the next unused trend_topics candidate, writes + fact-checks a short
-caption-only script, sources stock footage per scene (Pexels, Pixabay fallback),
-assembles the video with FFmpeg, mixes in royalty-free music, QCs the render,
-uploads to YouTube, and cleans up. Run 3x/day via cron in the GitHub Actions
-workflow - each run consumes one topic, so 3 runs/day == 3 different videos.
+Max & Nova dialogue script, synthesizes each line with free TTS, renders each
+turn as a two-character "talking heads" scene with FFmpeg, mixes in ducked
+royalty-free music under the voices, QCs the render, uploads to YouTube, and
+cleans up. The first SHORTS_MANUAL_REVIEW_COUNT videos upload private with a
+scheduled publish for review; later ones publish straight to public.
 """
 import datetime
 import logging
@@ -14,37 +15,50 @@ import tempfile
 
 import requests
 
-from common import db, gemini, video
+from common import db, gemini, tts, video
 from common.notify import notify_discord
 from common.util import run_main
 from common.youtube import set_thumbnail, upload_video
 
 log = logging.getLogger("05_youtube_shorts")
 
+# Committed once, reused by every render - see assets/characters/README (or the
+# repo's assets/characters/ dir directly) for how these were generated.
+CHAR_ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "characters")
+MAX_IDLE = os.path.join(CHAR_ASSETS_DIR, "max_idle.png")
+MAX_TALK = os.path.join(CHAR_ASSETS_DIR, "max_talk.png")
+NOVA_IDLE = os.path.join(CHAR_ASSETS_DIR, "nova_idle.png")
+NOVA_TALK = os.path.join(CHAR_ASSETS_DIR, "nova_talk.png")
+
+VOICE_BY_SPEAKER = {"Max": tts.MAX_VOICE, "Nova": tts.NOVA_VOICE}
+
 SCRIPT_SYSTEM_PROMPT = (
     "You are an expert short-form scriptwriter for a YouTube Shorts channel about AI "
     "tools, freelancing, side hustles, digital products, and online business "
-    "opportunities. The video will be CAPTION-ONLY (on-screen text synced to "
-    "background music, no voiceover), so write for READING not listening. Always "
-    'return strict JSON with keys: title, hook, curiosity_gap, main_explanation, cta, '
-    "full_script, keywords (array), hashtags (array), description. Rules: full_script "
-    "must be 6-10 short punchy sentences (each becomes a single on-screen caption "
-    "card, so keep each sentence under 12 words), factually accurate (no invented "
-    "income guarantees or unverifiable stats), strong opening hook, cta points "
-    "viewers to 'link in bio' for the full breakdown, no copyrighted quotes."
+    "opportunities. The video is a conversation between two recurring animated "
+    "hosts, Max and Nova, who take turns explaining the topic to each other and "
+    "to the viewer - write natural back-and-forth dialogue, not a monologue. "
+    'Always return strict JSON with keys: title, hook, cta, dialogue, keywords '
+    '(array), hashtags (array), description. "dialogue" must be an array of 6-10 '
+    '{"speaker": "Max"|"Nova", "line": string} turns, alternating speakers, each '
+    "line under 18 words (it's spoken aloud AND shown as a caption, so keep it "
+    "punchy and natural to say out loud). Rules: factually accurate (no invented "
+    "income guarantees or unverifiable stats), Max opens with a strong hook, "
+    "Nova's final line is the cta pointing viewers to 'link in bio' for the full "
+    "breakdown, no copyrighted quotes."
 )
 
 FACT_CHECK_SYSTEM_PROMPT = (
     "You are a rigorous fact-checking model for business/finance content. Verify "
-    "every factual claim, income figure, and platform reference in the script. "
+    "every factual claim, income figure, and platform reference in the dialogue. "
     'Return strict JSON: {"confidence": 0-100, "issues": [string], "verdict": '
     '"pass"|"fail"}. Penalize unverifiable income guarantees heavily.'
 )
 
 REWRITE_SYSTEM_PROMPT = (
-    "Rewrite the script to fix the factual issues listed while preserving format "
-    "and length. Return the same JSON schema as before: title, hook, curiosity_gap, "
-    "main_explanation, cta, full_script, keywords, hashtags, description."
+    "Rewrite the dialogue to fix the factual issues listed while preserving the "
+    "Max/Nova back-and-forth format and length. Return the same JSON schema as "
+    "before: title, hook, cta, dialogue, keywords, hashtags, description."
 )
 
 SEO_SYSTEM_PROMPT = (
@@ -82,13 +96,17 @@ def reviewed_video_count(conn) -> int:
     return rows[0]["n"] if rows else 0
 
 
+def dialogue_transcript(dialogue: list[dict]) -> str:
+    return "\n".join(f"{t['speaker']}: {t['line']}" for t in dialogue)
+
+
 def write_script_with_fact_check(topic: dict) -> dict:
     script = gemini.generate_json(
         SCRIPT_SYSTEM_PROMPT,
         f"Topic: {topic['title']}\nCategory: {topic['category']}\n"
         f"Why it matters (scores): demand {topic['demand_score']}, "
         f"profitability {topic['profitability_score']}, competition {topic['competition_score']}.\n"
-        "Write the short script now.",
+        "Write the Max & Nova dialogue now.",
         temperature=0.7,
     )
 
@@ -96,7 +114,7 @@ def write_script_with_fact_check(topic: dict) -> dict:
     while True:
         fact_check = gemini.generate_json(
             FACT_CHECK_SYSTEM_PROMPT,
-            f"Fact-check this script:\n\n{script['full_script']}",
+            f"Fact-check this dialogue:\n\n{dialogue_transcript(script['dialogue'])}",
             temperature=0,
         )
         if fact_check.get("confidence", 0) >= CONFIDENCE_THRESHOLD:
@@ -110,57 +128,11 @@ def write_script_with_fact_check(topic: dict) -> dict:
             )
         script = gemini.generate_json(
             REWRITE_SYSTEM_PROMPT,
-            f"Original script: {script['full_script']}\nIssues to fix: {', '.join(fact_check.get('issues', []))}",
+            f"Original dialogue: {dialogue_transcript(script['dialogue'])}\n"
+            f"Issues to fix: {', '.join(fact_check.get('issues', []))}",
             temperature=0.5,
         )
         rewrite_count += 1
-
-
-def search_pexels(query: str) -> str | None:
-    api_key = os.environ.get("PEXELS_API_KEY")
-    if not api_key:
-        return None
-    try:
-        resp = requests.get(
-            "https://api.pexels.com/videos/search",
-            params={"query": query, "orientation": "portrait", "per_page": 1},
-            headers={"Authorization": api_key},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        videos = resp.json().get("videos", [])
-        if not videos:
-            return None
-        files = videos[0].get("video_files", [])
-        hd = next((f for f in files if f.get("quality") == "hd"), None)
-        return (hd or files[0])["link"] if files else None
-    except (requests.RequestException, KeyError, IndexError) as e:
-        log.warning("Pexels search failed for %r: %s", query, e)
-        return None
-
-
-def search_pixabay(query: str) -> str | None:
-    api_key = os.environ.get("PIXABAY_API_KEY")
-    if not api_key:
-        return None
-    try:
-        resp = requests.get(
-            "https://pixabay.com/api/videos/",
-            params={"key": api_key, "q": query, "per_page": 3},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        hits = resp.json().get("hits", [])
-        if not hits:
-            return None
-        videos = hits[0].get("videos", {})
-        for quality in ("medium", "large", "small", "tiny"):
-            if quality in videos:
-                return videos[quality]["url"]
-        return None
-    except (requests.RequestException, KeyError, IndexError) as e:
-        log.warning("Pixabay search failed for %r: %s", query, e)
-        return None
 
 
 def download_file(url: str, dest_path: str):
@@ -171,38 +143,48 @@ def download_file(url: str, dest_path: str):
             f.write(chunk)
 
 
-def build_video(scenes: list[dict], render_dir: str) -> str:
-    """Downloads stock footage per scene, processes each with FFmpeg, concatenates,
-    and mixes in background music. Returns the path to the final (pre-QC) video."""
+def build_dialogue_video(scenes: list[dict], render_dir: str) -> str:
+    """Synthesizes each line's voice, renders each turn as a talking-heads
+    scene sized to that line's actual spoken duration, concatenates them, and
+    mixes in ducked background music under the voices. Returns the final
+    (pre-QC) video path."""
+    font_path = os.environ.get("RENDER_FONT_PATH", video.FONT_PATH_DEFAULT)
     processed_paths = []
     for scene in scenes:
-        clip_url = search_pexels(scene["search_query"]) or search_pixabay(scene["search_query"])
-        if not clip_url:
-            raise RuntimeError(f"No stock footage found for scene {scene['index']} (query={scene['search_query']!r})")
+        idx = scene["index"]
+        speaker = scene["speaker"]
+        voice = VOICE_BY_SPEAKER[speaker]
 
-        raw_path = os.path.join(render_dir, f"scene_{scene['index']}_raw.mp4")
-        caption_path = os.path.join(render_dir, f"scene_{scene['index']}_caption.txt")
-        processed_path = os.path.join(render_dir, f"scene_{scene['index']}_processed.mp4")
+        text_path = os.path.join(render_dir, f"scene_{idx}_line.txt")
+        audio_path = os.path.join(render_dir, f"scene_{idx}_voice.mp3")
+        caption_path = os.path.join(render_dir, f"scene_{idx}_caption.txt")
+        processed_path = os.path.join(render_dir, f"scene_{idx}_processed.mp4")
 
-        download_file(clip_url, raw_path)
+        tts.synthesize(scene["text"], voice, text_path, audio_path)
         with open(caption_path, "w") as f:
             f.write(scene["text"])
 
-        font_path = os.environ.get("RENDER_FONT_PATH", video.FONT_PATH_DEFAULT)
-        video.process_scene(raw_path, caption_path, processed_path, scene["duration"], font_path)
+        # a little tail padding so the mouth-flap and caption don't cut off
+        # the instant the voice line ends
+        duration = video.probe_duration(audio_path) + 0.4
+
+        video.render_talking_scene(
+            speaker, MAX_IDLE, MAX_TALK, NOVA_IDLE, NOVA_TALK,
+            caption_path, audio_path, duration, processed_path, font_path,
+        )
         processed_paths.append(processed_path)
 
     list_path = os.path.join(render_dir, "concat_list.txt")
     with open(list_path, "w") as f:
         for p in processed_paths:
             f.write(f"file '{os.path.basename(p)}'\n")
-    novoice_path = os.path.join(render_dir, "novoice.mp4")
-    video.concat_scenes(list_path, novoice_path)
+    voiced_path = os.path.join(render_dir, "voiced.mp4")
+    video.concat_scenes(list_path, voiced_path)
 
     music_path = os.path.join(render_dir, "music.mp3")
     download_file(os.environ["BG_MUSIC_URL"], music_path)
     final_path = os.path.join(render_dir, "final.mp4")
-    video.mix_music(novoice_path, music_path, final_path)
+    video.mix_music(voiced_path, music_path, final_path)
     return final_path
 
 
@@ -223,14 +205,14 @@ def main(conn):
         return
     log.info("Script ready after %d rewrite(s), confidence=%s", script["rewrite_count"], script["fact_check"]["confidence"])
 
-    scenes = video.build_scenes(script["full_script"])
-    log.info("Split into %d scenes", len(scenes))
+    scenes = video.build_dialogue_scenes(script["dialogue"])
+    log.info("Split into %d dialogue turns", len(scenes))
 
     run_id = video.safe_run_id(f"{topic['run_id']}-{topic['id']}")
     render_dir = os.path.join(tempfile.gettempdir(), "shorts-render", run_id)
     os.makedirs(render_dir, exist_ok=True)
     try:
-        final_path = build_video(scenes, render_dir)
+        final_path = build_dialogue_video(scenes, render_dir)
         duration = video.probe_duration(final_path)
         qc_passed = 15 <= duration <= 62
         if not qc_passed:
@@ -245,9 +227,10 @@ def main(conn):
         font_path = os.environ.get("RENDER_FONT_PATH", video.FONT_PATH_DEFAULT)
         video.extract_thumbnail(final_path, title_path, thumb_path, font_path)
 
+        transcript = dialogue_transcript(script["dialogue"])
         seo = gemini.generate_json(
             SEO_SYSTEM_PROMPT,
-            f"Script title: {script['title']}\nScript: {script['full_script']}",
+            f"Script title: {script['title']}\nDialogue: {transcript}",
             temperature=0.6,
         )
 
@@ -273,7 +256,7 @@ def main(conn):
 
         db.insert_rows(conn, "published_videos", [{
             "run_id": topic["run_id"], "topic_id": topic["id"], "youtube_video_id": video_id,
-            "title": script["title"], "script": script["full_script"],
+            "title": script["title"], "script": transcript,
             "fact_check_confidence": script["fact_check"]["confidence"], "rewrite_count": script["rewrite_count"],
             "thumbnail_status": "set", "video_url": f"https://youtube.com/shorts/{video_id}",
             "duration_seconds": duration, "status": "scheduled" if needs_review else "published",

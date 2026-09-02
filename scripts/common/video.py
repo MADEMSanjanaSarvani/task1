@@ -14,6 +14,22 @@ log = logging.getLogger(__name__)
 
 FONT_PATH_DEFAULT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"  # apt package fonts-dejavu-core
 
+# Two-character "talking heads" layout - Max always occupies the top half of the
+# 1080x1920 canvas, Nova always the bottom half, so the channel has a consistent,
+# recognizable look across every Short.
+CANVAS_W, CANVAS_H = 1080, 1920
+PANEL_H = CANVAS_H // 2
+CHAR_DISPLAY_W, CHAR_DISPLAY_H = 500, 520
+CHAR_X = (CANVAS_W - CHAR_DISPLAY_W) // 2
+MAX_PANEL_Y, NOVA_PANEL_Y = 0, PANEL_H
+MAX_CHAR_Y = MAX_PANEL_Y + (PANEL_H - CHAR_DISPLAY_H) // 2
+NOVA_CHAR_Y = NOVA_PANEL_Y + (PANEL_H - CHAR_DISPLAY_H) // 2
+MAX_BG, NOVA_BG = "0x0B1220", "0x2E0C2E"
+MAX_ACCENT, NOVA_ACCENT = "0xF59E0B", "0xEC4899"
+# fraction of each 0.4s cycle the "talking" frame is shown, alternating with idle -
+# a classic cutout mouth-flap effect built from just two static frames per character.
+MOUTH_FLAP_ENABLE = "lt(mod(t,0.4),0.18)"
+
 
 def _run(args: list[str]):
     log.info("Running: %s", " ".join(args))
@@ -50,9 +66,16 @@ def concat_scenes(list_path: str, out_path: str):
 
 
 def build_mix_music_args(video_path: str, music_path: str, out_path: str) -> list[str]:
+    """Ducks the background music well under the characters' TTS voice track
+    (already embedded in video_path from the per-scene dialogue audio) rather
+    than replacing it - amix blends both into one output track."""
+    filter_complex = (
+        "[0:a]volume=1.0[voice];[1:a]volume=0.12[bg];"
+        "[voice][bg]amix=inputs=2:duration=first:dropout_transition=0[aout]"
+    )
     return [
         "ffmpeg", "-y", "-i", video_path, "-stream_loop", "-1", "-i", music_path,
-        "-filter_complex", "[1:a]volume=0.25[bg]", "-map", "0:v", "-map", "[bg]",
+        "-filter_complex", filter_complex, "-map", "0:v", "-map", "[aout]",
         "-shortest", "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart", out_path,
     ]
 
@@ -101,6 +124,90 @@ def build_scenes(script_text: str, max_scenes: int = 10, scene_duration: float =
         search_query = " ".join(words[:4]) or "business technology"
         scenes.append({"index": i, "text": s, "search_query": search_query, "duration": scene_duration})
     return scenes
+
+
+def build_dialogue_scenes(dialogue: list[dict], max_scenes: int = 14) -> list[dict]:
+    """Normalizes Gemini's raw dialogue turns (list of {speaker, line}) into
+    indexed scenes for the two-character talking-heads renderer. Each scene's
+    duration is filled in later by the caller, after its TTS line is synthesized
+    and probed - a turn's length is however long the line actually takes to say,
+    not a fixed guess."""
+    scenes = []
+    for i, turn in enumerate(dialogue[:max_scenes]):
+        speaker = (turn.get("speaker") or "").strip()
+        line = (turn.get("line") or "").strip()
+        if speaker not in ("Max", "Nova") or not line:
+            continue
+        scenes.append({"index": i, "speaker": speaker, "text": line})
+    return scenes
+
+
+def build_talking_scene_args(speaker: str, max_idle_path: str, max_talk_path: str,
+                              nova_idle_path: str, nova_talk_path: str, caption_path: str,
+                              audio_path: str, duration: float, out_path: str,
+                              font_path: str = FONT_PATH_DEFAULT) -> list[str]:
+    """Builds one dialogue-turn scene: two character panels on a fixed-color
+    background, the speaking character's mouth flapping between its idle/talk
+    frames, a highlighted border on whichever panel is speaking, and the line's
+    caption burned in - with the line's own TTS audio as this scene's soundtrack."""
+    if speaker not in ("Max", "Nova"):
+        raise ValueError(f"unknown speaker: {speaker!r}")
+
+    speaking_max = speaker == "Max"
+    highlight_y = MAX_PANEL_Y if speaking_max else NOVA_PANEL_Y
+    highlight_color = MAX_ACCENT if speaking_max else NOVA_ACCENT
+    caption_y = 760 if speaking_max else CANVAS_H - PANEL_H + 760
+
+    bg = (
+        f"[0:v]drawbox=x=0:y=0:w={CANVAS_W}:h={PANEL_H}:color={MAX_BG}:t=fill,"
+        f"drawbox=x=0:y={PANEL_H}:w={CANVAS_W}:h={PANEL_H}:color={NOVA_BG}:t=fill,"
+        f"drawbox=x=0:y={PANEL_H - 6}:w={CANVAS_W}:h=12:color=0xF59E0B:t=fill,"
+        f"drawbox=x=6:y={highlight_y + 6}:w={CANVAS_W - 12}:h={PANEL_H - 12}:"
+        f"color={highlight_color}:t=14[bg]"
+    )
+
+    max_overlay = f"[bg][1:v]overlay=x={CHAR_X}:y={MAX_CHAR_Y}[m1]"
+    if speaking_max:
+        max_overlay += f";[m1][2:v]overlay=x={CHAR_X}:y={MAX_CHAR_Y}:enable='{MOUTH_FLAP_ENABLE}'[m2]"
+    else:
+        max_overlay += ";[m1]null[m2]"
+
+    nova_overlay = f"[m2][3:v]overlay=x={CHAR_X}:y={NOVA_CHAR_Y}[n1]"
+    if not speaking_max:
+        nova_overlay += f";[n1][4:v]overlay=x={CHAR_X}:y={NOVA_CHAR_Y}:enable='{MOUTH_FLAP_ENABLE}'[n2]"
+    else:
+        nova_overlay += ";[n1]null[n2]"
+
+    caption = (
+        f"[n2]drawtext=fontfile={font_path}:textfile={caption_path}:fontcolor=white:"
+        f"fontsize=46:x=(w-text_w)/2:y={caption_y}:box=1:boxcolor=black@0.55:boxborderw=20[vout]"
+    )
+
+    filter_complex = ";".join([bg, max_overlay, nova_overlay, caption])
+
+    return [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", f"color=c=black:s={CANVAS_W}x{CANVAS_H}",
+        "-loop", "1", "-i", max_idle_path,
+        "-loop", "1", "-i", max_talk_path,
+        "-loop", "1", "-i", nova_idle_path,
+        "-loop", "1", "-i", nova_talk_path,
+        "-i", audio_path,
+        "-filter_complex", filter_complex,
+        "-map", "[vout]", "-map", "5:a",
+        "-t", str(duration),
+        "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", out_path,
+    ]
+
+
+def render_talking_scene(speaker: str, max_idle_path: str, max_talk_path: str,
+                          nova_idle_path: str, nova_talk_path: str, caption_path: str,
+                          audio_path: str, duration: float, out_path: str,
+                          font_path: str = FONT_PATH_DEFAULT):
+    _run(build_talking_scene_args(speaker, max_idle_path, max_talk_path, nova_idle_path,
+                                   nova_talk_path, caption_path, audio_path, duration,
+                                   out_path, font_path))
 
 
 def safe_run_id(run_id: str) -> str:
