@@ -12,6 +12,13 @@ import requests
 
 GEMINI_URL_TMPL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
+# Gemini's free tier is only 5 requests/minute *per model, shared across the
+# whole API key* - one script issuing 2-3 calls back-to-back can blow through
+# that on its own even with no other job running. Spacing calls out proactively
+# avoids 429s in the first place instead of only reacting to them after the fact.
+MIN_CALL_INTERVAL_SECONDS = 13
+_last_call_at = 0.0
+
 
 class GeminiError(Exception):
     pass
@@ -43,9 +50,14 @@ def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7
         },
     }
 
+    global _last_call_at
     last_err = None
     for attempt in range(1, max_retries + 1):
+        wait = MIN_CALL_INTERVAL_SECONDS - (time.monotonic() - _last_call_at)
+        if wait > 0:
+            time.sleep(wait)
         try:
+            _last_call_at = time.monotonic()
             resp = requests.post(url, params={"key": api_key}, json=body, timeout=timeout)
             # 429 (rate limited) and 5xx (transient server-side overload, e.g. the
             # "-latest" preview endpoints under load) both warrant a longer backoff

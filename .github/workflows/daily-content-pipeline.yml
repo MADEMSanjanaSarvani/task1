@@ -76,7 +76,11 @@ jobs:
           if-no-files-found: ignore
 
   business-student-viral:
-    needs: trend-research
+    # Runs after content-generation (not in parallel with it) rather than both
+    # racing each other right after trend-research - Gemini's free tier is only
+    # 5 requests/minute *shared across the whole API key*, so two jobs both
+    # calling Gemini at once reliably blow through it even with per-job retries.
+    needs: content-generation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
