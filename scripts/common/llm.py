@@ -54,11 +54,15 @@ def _call(system_prompt: str, user_prompt: str, temperature: float, timeout: int
             # 429 (rate limited) and 5xx (transient server-side overload) both
             # warrant a longer backoff than a plain retry.
             if resp.status_code == 429 or resp.status_code >= 500:
-                last_err = LLMError(f"transient error ({resp.status_code}): {resp.text[:300]}")
+                last_err = LLMError(f"transient error ({resp.status_code}): {resp.text[:500]}")
                 if attempt < max_retries:
                     time.sleep(10 * attempt)
                 continue
-            resp.raise_for_status()
+            if not resp.ok:
+                # a non-transient client error (400, 401, 404...) - resp.raise_for_status()
+                # would raise requests.HTTPError, whose default message drops the response
+                # body, hiding exactly the detail that explains what's wrong.
+                raise LLMError(f"client error ({resp.status_code}): {resp.text[:500]}")
             return extract_text(resp.json())
         except (requests.RequestException, LLMError) as e:
             last_err = e
