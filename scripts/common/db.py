@@ -1,7 +1,17 @@
 """Postgres/Supabase connection helper shared by every pipeline script."""
+import decimal
 import os
 import psycopg2
 import psycopg2.extras
+
+
+def json_default(obj):
+    """json.dumps(default=...) helper for values Postgres hands back that the
+    stdlib json module doesn't natively support - NUMERIC columns come back
+    as Decimal via RealDictCursor, which isn't JSON-serializable on its own."""
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
 def get_connection():
