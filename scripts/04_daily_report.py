@@ -3,9 +3,7 @@ import json
 import logging
 import os
 
-import requests
-
-from common import db
+from common import db, llm
 from common.sync_destinations import sync_airtable, sync_google_sheets, sync_notion
 from common.util import run_main, today
 
@@ -186,22 +184,7 @@ def _generate_action_plan(report: dict) -> str:
         f"Highest revenue idea: {report['highest_revenue_opportunity'].get('idea_name', 'N/A')}\n"
         f"Lowest competition opportunity: {report['lowest_competition_opportunity'].get('title', 'N/A')}"
     )
-    # This call returns plain text, not JSON, so it bypasses gemini.generate_json's
-    # JSON-mode/parsing and hits the API directly with a plain-text response.
-    api_key = os.environ["GEMINI_API_KEY"]
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
-    resp = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-        params={"key": api_key},
-        json={
-            "systemInstruction": {"parts": [{"text": ACTION_PLAN_SYSTEM_PROMPT}]},
-            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-            "generationConfig": {"temperature": 0.5},
-        },
-        timeout=60,
-    )
-    resp.raise_for_status()
-    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+    return llm.generate_text(ACTION_PLAN_SYSTEM_PROMPT, user_prompt, temperature=0.5)
 
 
 if __name__ == "__main__":

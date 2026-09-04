@@ -22,7 +22,7 @@ implement the same pipeline logic independently — pick one, you don't need bot
 | Orchestration | n8n workflow JSON, self-hosted | GitHub Actions YAML + Python scripts |
 | Database | Self-hosted Postgres (Docker) | **Supabase** (hosted Postgres, free tier) — GitHub Actions runners are ephemeral, so state has to live somewhere that survives between runs |
 | Server | A VM you provision and maintain | None — GitHub's runners |
-| LLM | Gemini (same) | Gemini (same) |
+| LLM | Gemini | **Groq** (Llama 3.3 70B) — switched after Gemini's free-tier 5 requests/minute proved too tight for a multi-step pipeline; Groq's free tier is 30 RPM |
 | Video assembly | Self-hosted FFmpeg in a Docker container | Self-hosted FFmpeg, pre-installed on `ubuntu-latest` runners (or installed via `apt-get` in the workflow) |
 | Shell safety | Sanitized path components interpolated into Execute Command shell strings | `subprocess.run(args_list)` with argument lists — no shell string is ever built, so there's no injection surface to sanitize against in the first place |
 | Google Sheets auth | OAuth2 (interactive) | Service Account (non-interactive — required, since nothing can open a browser on a runner) |
@@ -44,13 +44,13 @@ tests/                         # pytest coverage for every pure-logic function
   test_video.py                # FFmpeg/ffprobe argument-list construction, scene
                                 # splitting, run_id sanitization
   test_daily_report.py         # markdown report assembly
-  test_gemini.py               # Gemini response-shape extraction
+  test_llm.py                  # Groq response-shape extraction, RPM pacing
   test_util.py                 # run_id / date formatting
 
 scripts/
   common/
     db.py                # Postgres/Supabase connection + insert/select helpers
-    gemini.py            # Gemini generateContent wrapper, JSON mode
+    llm.py               # Groq chat-completions wrapper, JSON mode, RPM pacing
     scoring.py           # Step 8 trend categorization + scoring (pure functions)
     sources.py           # the 6 free trend-source fetchers
     sync_destinations.py # Google Sheets / Airtable / Notion sync (best-effort)
@@ -102,14 +102,21 @@ the Discord alert.
    supports IPv4. Replace `[YOUR-PASSWORD]` in the string with your DB password,
    URL-encoding special characters (`@` → `%40`), then save it as `SUPABASE_DB_URL`.
 
-### 3b. Gemini
+### 3b. Groq (the LLM)
 
-Get a free API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-Save it as `GEMINI_API_KEY`. For the `GEMINI_MODEL` variable (section 3f), use
-an alias like `gemini-flash-latest` rather than a pinned dated model name -
-pinned models get deprecated and start 404ing; if the `-latest` alias is
-returning transient 503 "high demand" errors, switch to a named stable release
-instead (e.g. `gemini-2.5-flash`, not a `-preview` or `-latest` one).
+Get a free API key at [console.groq.com/keys](https://console.groq.com/keys) —
+no credit card needed. Save it as `GROQ_API_KEY`.
+
+Groq was chosen over Gemini after running into Gemini's free-tier limit of
+just 5 requests/minute (shared across the whole project, not per API key —
+more keys in the same project don't help), which a multi-step pipeline like
+this one blows through constantly. Groq's free tier is 30 requests/minute at
+the project level, which comfortably covers every script's call volume. The
+trade-off: Groq serves open models (Llama, not Gemini) — for the
+`GROQ_MODEL` variable (section 3f), the default `llama-3.3-70b-versatile` is
+a strong general-purpose choice; see
+[console.groq.com/docs/models](https://console.groq.com/docs/models) for
+alternatives if you want to trade quality for even higher throughput.
 
 ### 3c. Google Sheets (service account, not OAuth)
 
@@ -157,7 +164,7 @@ of the following. (Names match exactly what the workflow YAML files reference.)
 | Secret | Required for |
 |---|---|
 | `SUPABASE_DB_URL` | every script |
-| `GEMINI_API_KEY` | every script that generates content |
+| `GROQ_API_KEY` | every script that generates content |
 | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | 01 |
 | `PRODUCTHUNT_TOKEN` | 01 |
 | `GH_SEARCH_TOKEN` | 01 (a GitHub personal access token for the trending-repos search — **not** the auto-provided Actions token, name it something else to avoid confusion) |
@@ -177,8 +184,8 @@ footage, so no stock-footage source is needed any more; you can remove those
 two secrets if you'd set them up earlier.
 
 Also add one repository **variable** (Settings → Secrets and variables → Actions →
-Variables tab, not Secrets): `GEMINI_MODEL` = `gemini-flash-latest` (or a
-pinned stable release like `gemini-2.5-flash` — see the note in section 3b).
+Variables tab, not Secrets): `GROQ_MODEL` = `llama-3.3-70b-versatile` (or
+another Groq-hosted model — see the note in section 3b).
 
 ---
 
@@ -229,7 +236,7 @@ later, or shrink `SHORTS_REVIEW_BUFFER_HOURS`, any time.
   without re-running the whole pipeline, and it'll operate on whatever's currently
   in the database.
 - **Timeouts**: `youtube-shorts.yml` sets `timeout-minutes: 30` since Shorts
-  generation (Gemini calls + per-line TTS synthesis + FFmpeg encoding + upload)
+  generation (LLM calls + per-line TTS synthesis + FFmpeg encoding + upload)
   is the slowest single run in the system. GitHub Actions' default job timeout is
   6 hours, generous enough that this is just a safety net, not a real constraint.
 - **TTS**: `common/tts.py` uses `edge-tts`, an unofficial wrapper around
@@ -239,9 +246,10 @@ later, or shrink `SHORTS_REVIEW_BUFFER_HOURS`, any time.
   files as workflow run artifacts (30-day retention by default) in addition to
   writing them to Postgres — handy for browsing a specific day's output without
   querying the database directly.
-- **Rate limits**: same Gemini free-tier considerations as the n8n version
-  (README.md section 9a) — nothing here changes that math, just where the calls
-  originate from.
+- **Rate limits**: Groq's free tier is 30 requests/minute at the project level.
+  `common/llm.py` paces consecutive calls within a script and retries with
+  backoff on 429/5xx, so normal daily-cron usage shouldn't hit it — heavy
+  manual re-triggering in a short window (e.g. while testing) still can.
 - **Cost**: still $0 beyond whatever's already free — GitHub Actions gives
   generous free minutes on public repos (unlimited) and a monthly free allowance
   on private repos; Supabase's free tier (500MB database, generous request
@@ -254,9 +262,9 @@ later, or shrink `SHORTS_REVIEW_BUFFER_HOURS`, any time.
   mid-upload if the next cron fires while a Short is still rendering.
 - **Tests**: `tests/` has pytest coverage for every pure-logic function in this
   system — trend categorization/scoring, FFmpeg argument-list construction,
-  scene splitting, `run_id` sanitization, markdown report assembly, and Gemini
-  response-shape extraction (23 tests total). `tests.yml` runs them on every
-  push/PR touching `scripts/` or `tests/`. Run them yourself with:
+  scene splitting, `run_id` sanitization, markdown report assembly, and LLM
+  response-shape extraction/RPM pacing (36 tests total). `tests.yml` runs them
+  on every push/PR touching `scripts/` or `tests/`. Run them yourself with:
   ```bash
   pip install -r requirements.txt pytest
   pytest
@@ -264,4 +272,4 @@ later, or shrink `SHORTS_REVIEW_BUFFER_HOURS`, any time.
   These are unit tests for logic that doesn't need live infrastructure (no
   network, no database, no ffmpeg binary required) — they don't replace the
   watched first run in section 4, which is the only way to verify the parts
-  that *do* need real Postgres/Gemini/FFmpeg/YouTube.
+  that *do* need real Postgres/Groq/FFmpeg/YouTube.

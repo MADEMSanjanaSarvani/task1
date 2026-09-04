@@ -1,7 +1,7 @@
 """Workflow 03 - AI Business Ideas, Student Opportunities & Viral Detection (Steps 5-7)."""
 import logging
 
-from common import db, gemini
+from common import db, llm
 from common.util import run_main
 
 log = logging.getLogger("03_business_student_viral")
@@ -60,7 +60,7 @@ def main(conn):
     topics_summary = [{"title": t["title"], "category": t["category"]} for t in topics]
     log.info("Using %d topics for run_id=%s", len(topics), run_id)
 
-    ideas_response = gemini.generate_json(
+    ideas_response = llm.generate_json(
         BUSINESS_IDEAS_SYSTEM_PROMPT,
         f"Trending topics:\n{topics_summary}\n\nGenerate 10 fresh, unique AI business ideas now.",
         temperature=0.8,
@@ -73,7 +73,7 @@ def main(conn):
     db.insert_rows(conn, "ai_business_ideas", ideas)
     log.info("Saved %d AI business ideas", len(ideas))
 
-    student_response = gemini.generate_json(
+    student_response = llm.generate_json(
         STUDENT_SYSTEM_PROMPT,
         f"Trending topics:\n{topics_summary}\n\nGenerate the student opportunities now.",
         temperature=0.7,
@@ -84,7 +84,7 @@ def main(conn):
     db.insert_rows(conn, "student_opportunities", opportunities)
     log.info("Saved %d student opportunities", len(opportunities))
 
-    viral_response = gemini.generate_json(
+    viral_response = llm.generate_json(
         VIRAL_SYSTEM_PROMPT,
         f"Trending topics:\n{topics_summary}\n\nDetect viral trends now.",
         temperature=0.75,

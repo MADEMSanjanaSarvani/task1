@@ -22,8 +22,8 @@ concurrency:
 
 env:
   SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-  GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-flash-latest' }}
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  GROQ_MODEL: ${{ vars.GROQ_MODEL || 'llama-3.3-70b-versatile' }}
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
   SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -76,11 +76,7 @@ jobs:
           if-no-files-found: ignore
 
   business-student-viral:
-    # Runs after content-generation (not in parallel with it) rather than both
-    # racing each other right after trend-research - Gemini's free tier is only
-    # 5 requests/minute *shared across the whole API key*, so two jobs both
-    # calling Gemini at once reliably blow through it even with per-job retries.
-    needs: content-generation
+    needs: trend-research
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

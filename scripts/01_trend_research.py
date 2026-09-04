@@ -1,7 +1,7 @@
 """Workflow 01 - Trend & Opportunity Research (Steps 1-3).
 
 Fetches trends from 6 free sources, categorizes + scores them (Step 8), saves the
-candidate pool, then asks Gemini to research digital products (Step 2) and
+candidate pool, then asks the LLM to research digital products (Step 2) and
 freelancing opportunities (Step 3) based on the top-scoring topics.
 
 Run standalone: python scripts/01_trend_research.py
@@ -9,7 +9,7 @@ Run standalone: python scripts/01_trend_research.py
 import logging
 import os
 
-from common import db, gemini, sources, scoring
+from common import db, llm, sources, scoring
 from common.util import new_run_id, run_main
 
 log = logging.getLogger("01_trend_research")
@@ -67,7 +67,7 @@ def main(conn):
 
     topics_summary = [{"title": t["title"], "category": t["category"], "overall_score": t["overall_score"]} for t in top_topics]
 
-    products_response = gemini.generate_json(
+    products_response = llm.generate_json(
         DIGITAL_PRODUCT_SYSTEM_PROMPT,
         f"Trending topics for {run_id}:\n{topics_summary}\n\nPropose the digital products now.",
         temperature=0.6,
@@ -78,7 +78,7 @@ def main(conn):
     db.insert_rows(conn, "digital_products", products)
     log.info("Saved %d digital products", len(products))
 
-    freelancing_response = gemini.generate_json(
+    freelancing_response = llm.generate_json(
         FREELANCING_SYSTEM_PROMPT,
         f"Trending topics for {run_id}:\n{topics_summary}\n\nPropose the freelancing opportunities now.",
         temperature=0.6,

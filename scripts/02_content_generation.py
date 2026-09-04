@@ -9,7 +9,7 @@ import logging
 import os
 import re
 
-from common import db, gemini
+from common import db, llm
 from common.util import run_main
 
 log = logging.getLogger("02_content_generation")
@@ -68,7 +68,7 @@ def main(conn):
     run_id = topic["run_id"]
     log.info("Generating content for topic %r (run_id=%s)", topic["title"], run_id)
 
-    blog = gemini.generate_json(
+    blog = llm.generate_json(
         BLOG_SYSTEM_PROMPT,
         f"Write the blog article for this trending opportunity:\n"
         f"Title: {topic['title']}\nCategory: {topic['category']}\n"
@@ -97,7 +97,7 @@ def main(conn):
     with open(f"{output_dir}/blogs/{run_id}-blog.md", "w") as f:
         f.write(md)
 
-    social = gemini.generate_json(
+    social = llm.generate_json(
         SOCIAL_SYSTEM_PROMPT,
         f"Blog title: {blog['title']}\nIntroduction: {blog.get('introduction', '')}\n"
         f"Key keywords: {', '.join(blog.get('seo_keywords', []))}",
@@ -110,7 +110,7 @@ def main(conn):
     db.insert_rows(conn, "social_content", [social_row])
     log.info("Social content saved")
 
-    youtube = gemini.generate_json(
+    youtube = llm.generate_json(
         YOUTUBE_SYSTEM_PROMPT,
         f"Blog title: {blog['title']}\nMain content summary: {blog.get('introduction', '')}",
         temperature=0.75,
@@ -124,7 +124,7 @@ def main(conn):
     db.insert_rows(conn, "youtube_content", [youtube_row])
     log.info("YouTube content saved")
 
-    newsletter = gemini.generate_json(
+    newsletter = llm.generate_json(
         NEWSLETTER_SYSTEM_PROMPT,
         f"Base the newsletter on this run's top opportunity: {topic['title']} (category: {topic['category']}).",
         temperature=0.6,

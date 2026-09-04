@@ -15,7 +15,7 @@ import tempfile
 
 import requests
 
-from common import db, gemini, tts, video
+from common import db, llm, tts, video
 from common.notify import notify_discord
 from common.util import run_main
 from common.youtube import set_thumbnail, upload_video
@@ -101,7 +101,7 @@ def dialogue_transcript(dialogue: list[dict]) -> str:
 
 
 def write_script_with_fact_check(topic: dict) -> dict:
-    script = gemini.generate_json(
+    script = llm.generate_json(
         SCRIPT_SYSTEM_PROMPT,
         f"Topic: {topic['title']}\nCategory: {topic['category']}\n"
         f"Why it matters (scores): demand {topic['demand_score']}, "
@@ -112,7 +112,7 @@ def write_script_with_fact_check(topic: dict) -> dict:
 
     rewrite_count = 0
     while True:
-        fact_check = gemini.generate_json(
+        fact_check = llm.generate_json(
             FACT_CHECK_SYSTEM_PROMPT,
             f"Fact-check this dialogue:\n\n{dialogue_transcript(script['dialogue'])}",
             temperature=0,
@@ -126,7 +126,7 @@ def write_script_with_fact_check(topic: dict) -> dict:
                 f"Script failed fact-check {MAX_REWRITE_ATTEMPTS}x for topic_id={topic['id']} "
                 f"(last confidence={fact_check.get('confidence')}, issues={fact_check.get('issues')})"
             )
-        script = gemini.generate_json(
+        script = llm.generate_json(
             REWRITE_SYSTEM_PROMPT,
             f"Original dialogue: {dialogue_transcript(script['dialogue'])}\n"
             f"Issues to fix: {', '.join(fact_check.get('issues', []))}",
@@ -228,7 +228,7 @@ def main(conn):
         video.extract_thumbnail(final_path, title_path, thumb_path, font_path)
 
         transcript = dialogue_transcript(script["dialogue"])
-        seo = gemini.generate_json(
+        seo = llm.generate_json(
             SEO_SYSTEM_PROMPT,
             f"Script title: {script['title']}\nDialogue: {transcript}",
             temperature=0.6,

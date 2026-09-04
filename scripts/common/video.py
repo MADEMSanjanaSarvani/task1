@@ -125,7 +125,7 @@ def build_scenes(script_text: str, max_scenes: int = 10, scene_duration: float =
 
 
 def build_dialogue_scenes(dialogue: list[dict], max_scenes: int = 14) -> list[dict]:
-    """Normalizes Gemini's raw dialogue turns (list of {speaker, line}) into
+    """Normalizes the LLM's raw dialogue turns (list of {speaker, line}) into
     indexed scenes for the two-character talking-heads renderer. Each scene's
     duration is filled in later by the caller, after its TTS line is synthesized
     and probed - a turn's length is however long the line actually takes to say,
