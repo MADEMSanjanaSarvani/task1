@@ -1,4 +1,5 @@
 """Postgres/Supabase connection helper shared by every pipeline script."""
+import datetime
 import decimal
 import os
 import psycopg2
@@ -7,10 +8,13 @@ import psycopg2.extras
 
 def json_default(obj):
     """json.dumps(default=...) helper for values Postgres hands back that the
-    stdlib json module doesn't natively support - NUMERIC columns come back
-    as Decimal via RealDictCursor, which isn't JSON-serializable on its own."""
+    stdlib json module doesn't natively support: NUMERIC columns come back as
+    Decimal, and TIMESTAMPTZ/DATE columns come back as datetime/date, via
+    RealDictCursor - neither is JSON-serializable on its own."""
     if isinstance(obj, decimal.Decimal):
         return float(obj)
+    if isinstance(obj, (datetime.date, datetime.datetime)):
+        return obj.isoformat()
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 

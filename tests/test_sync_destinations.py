@@ -1,3 +1,4 @@
+import datetime
 import decimal
 import json
 
@@ -8,6 +9,11 @@ def test_stringify_converts_decimal_to_float():
     result = _stringify(decimal.Decimal("87.50"))
     assert result == 87.5
     assert isinstance(result, float)
+
+
+def test_stringify_converts_datetime_to_isoformat_string():
+    dt = datetime.datetime(2026, 9, 4, 12, 30, tzinfo=datetime.timezone.utc)
+    assert _stringify(dt) == dt.isoformat()
 
 
 def test_stringify_passes_through_plain_scalars():
@@ -28,3 +34,9 @@ def test_stringify_handles_decimal_nested_inside_dict_or_list():
     # requests.RequestException, so its own try/except wouldn't have caught it)
     result = _stringify({"score": decimal.Decimal("12.34")})
     assert json.loads(result) == {"score": 12.34}
+
+
+def test_stringify_handles_datetime_nested_inside_dict_or_list():
+    dt = datetime.datetime(2026, 9, 4, 12, 30, tzinfo=datetime.timezone.utc)
+    result = _stringify({"created_at": dt})
+    assert json.loads(result) == {"created_at": dt.isoformat()}

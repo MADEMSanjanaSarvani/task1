@@ -88,13 +88,23 @@ def sync_notion(title: str, database_id_env: str):
 
 
 def _stringify(value):
+    import datetime
     import decimal
     import json
-    # NUMERIC columns come back from Postgres as Decimal, which neither
-    # gspread nor requests' json= encoding can serialize on its own - convert
-    # up front so a raw score/price column never crashes a "best-effort" sync.
-    if isinstance(value, decimal.Decimal):
-        return float(value)
+
+    def _default(v):
+        if isinstance(v, decimal.Decimal):
+            return float(v)
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            return v.isoformat()
+        return str(v)
+
+    # NUMERIC columns come back from Postgres as Decimal and TIMESTAMPTZ/DATE
+    # columns as datetime/date - neither gspread nor requests' json= encoding
+    # can serialize either on its own, so convert up front rather than let a
+    # raw score/price/timestamp column crash a "best-effort" sync.
+    if isinstance(value, (decimal.Decimal, datetime.date, datetime.datetime)):
+        return _default(value)
     if isinstance(value, (dict, list)):
-        return json.dumps(value, default=lambda v: float(v) if isinstance(v, decimal.Decimal) else str(v))
+        return json.dumps(value, default=_default)
     return value
