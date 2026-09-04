@@ -25,7 +25,7 @@ class LLMError(Exception):
 
 
 def _call(system_prompt: str, user_prompt: str, temperature: float, timeout: int,
-          max_retries: int, json_mode: bool) -> str:
+          max_retries: int, json_mode: bool, max_completion_tokens: int) -> str:
     api_key = os.environ["GROQ_API_KEY"]
     model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
@@ -36,6 +36,10 @@ def _call(system_prompt: str, user_prompt: str, temperature: float, timeout: int
             {"role": "user", "content": user_prompt},
         ],
         "temperature": temperature,
+        # without this, Groq's default output cap can cut a long response off
+        # mid-generation - for JSON mode that produces invalid JSON and a
+        # "json_validate_failed" error, since the object never gets closed.
+        "max_completion_tokens": max_completion_tokens,
     }
     if json_mode:
         body["response_format"] = {"type": "json_object"}
@@ -71,8 +75,12 @@ def _call(system_prompt: str, user_prompt: str, temperature: float, timeout: int
     raise LLMError(f"LLM call failed after {max_retries} attempts: {last_err}")
 
 
+DEFAULT_MAX_COMPLETION_TOKENS = 8192
+
+
 def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7,
-                   max_retries: int = 5, timeout: int = 240) -> dict:
+                   max_retries: int = 5, timeout: int = 240,
+                   max_completion_tokens: int = DEFAULT_MAX_COMPLETION_TOKENS) -> dict:
     """Call the LLM in JSON mode and return the parsed object.
 
     Raises LLMError if the API call fails after retries, or if the response
@@ -80,7 +88,8 @@ def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7
     guarantees syntactically valid JSON, same guarantee level the provider's
     JSON mode provides).
     """
-    text = _call(system_prompt, user_prompt, temperature, timeout, max_retries, json_mode=True)
+    text = _call(system_prompt, user_prompt, temperature, timeout, max_retries,
+                 json_mode=True, max_completion_tokens=max_completion_tokens)
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
@@ -88,9 +97,11 @@ def generate_json(system_prompt: str, user_prompt: str, temperature: float = 0.7
 
 
 def generate_text(system_prompt: str, user_prompt: str, temperature: float = 0.7,
-                   max_retries: int = 5, timeout: int = 240) -> str:
+                   max_retries: int = 5, timeout: int = 240,
+                   max_completion_tokens: int = DEFAULT_MAX_COMPLETION_TOKENS) -> str:
     """Call the LLM for a plain-text (non-JSON) response."""
-    return _call(system_prompt, user_prompt, temperature, timeout, max_retries, json_mode=False)
+    return _call(system_prompt, user_prompt, temperature, timeout, max_retries,
+                 json_mode=False, max_completion_tokens=max_completion_tokens)
 
 
 def extract_text(response_json: dict) -> str:
