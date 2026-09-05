@@ -51,6 +51,10 @@ def get_top_topics(conn, limit: int = 15) -> list[dict]:
     )
 
 
+def mark_used(conn, topic_ids: list[int]):
+    db.execute(conn, "UPDATE trend_topics SET status = 'used' WHERE id = ANY(%s)", (topic_ids,))
+
+
 @run_main("03-business-student-viral")
 def main(conn):
     topics = get_top_topics(conn)
@@ -59,6 +63,7 @@ def main(conn):
     run_id = topics[0]["run_id"]
     topics_summary = [{"title": t["title"], "category": t["category"]} for t in topics]
     log.info("Using %d topics for run_id=%s", len(topics), run_id)
+    mark_used(conn, [t["id"] for t in topics])
 
     ideas_response = llm.generate_json(
         BUSINESS_IDEAS_SYSTEM_PROMPT,

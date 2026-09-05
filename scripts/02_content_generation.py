@@ -58,6 +58,10 @@ def get_top_topic(conn) -> dict:
     return rows[0]
 
 
+def mark_used(conn, topic_id: int):
+    db.execute(conn, "UPDATE trend_topics SET status = 'used' WHERE id = %s", (topic_id,))
+
+
 def word_count(*parts: str) -> int:
     return sum(len(re.findall(r"\S+", p or "")) for p in parts)
 
@@ -67,6 +71,7 @@ def main(conn):
     topic = get_top_topic(conn)
     run_id = topic["run_id"]
     log.info("Generating content for topic %r (run_id=%s)", topic["title"], run_id)
+    mark_used(conn, topic["id"])
 
     blog = llm.generate_json(
         BLOG_SYSTEM_PROMPT,
