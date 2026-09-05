@@ -14,13 +14,18 @@ log = logging.getLogger(__name__)
 
 FONT_PATH_DEFAULT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"  # apt package fonts-dejavu-core
 
-# Two-character "talking heads" layout - Max always occupies the top half of the
-# 1080x1920 canvas, Nova always the bottom half, so the channel has a consistent,
-# recognizable look across every Short.
+# Two-character "talking heads" layout - Max always occupies the left half of
+# the 1080x1920 canvas, Nova always the right half, side by side in a fixed
+# character zone with a full-width caption strip below, so the channel has a
+# consistent, recognizable look every Short. Nova is horizontally mirrored so
+# she visually faces Max (toward the center) instead of both facing the
+# camera dead-on, which read as two people talking *at the viewer*, not to
+# each other.
 CANVAS_W, CANVAS_H = 1080, 1920
-PANEL_H = CANVAS_H // 2
-CHAR_DISPLAY_W, CHAR_DISPLAY_H = 500, 520
-MAX_PANEL_Y, NOVA_PANEL_Y = 0, PANEL_H
+HALF_W = CANVAS_W // 2
+CHAR_ZONE_H = 1100
+CHAR_DISPLAY_W, CHAR_DISPLAY_H = 480, 900
+MAX_PANEL_X, NOVA_PANEL_X = 0, HALF_W
 MAX_BG, NOVA_BG = "0x0B1220", "0x2E0C2E"
 MAX_ACCENT, NOVA_ACCENT = "0xF59E0B", "0xEC4899"
 # fraction of each 0.4s cycle the brighter glow ring is shown on top of the
@@ -165,26 +170,24 @@ def build_dialogue_scenes(dialogue: list[dict], max_scenes: int = 14) -> list[di
 def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, caption_path: str,
                               audio_path: str, duration: float, out_path: str,
                               font_path: str = FONT_PATH_DEFAULT) -> list[str]:
-    """Builds one dialogue-turn scene: two character portraits on a fixed-color
-    background (each scaled to fit its panel, aspect ratio preserved regardless
-    of the source image's own dimensions), a pulsing glow ring on whichever
-    panel is speaking, and the line's caption burned in - with the line's own
-    TTS audio as this scene's soundtrack."""
+    """Builds one dialogue-turn scene: Max and Nova side by side (facing each
+    other, not the camera), a pulsing glow ring around whichever one is
+    speaking, and the line's caption burned into a full-width strip below -
+    with the line's own TTS audio as this scene's soundtrack."""
     if speaker not in ("Max", "Nova"):
         raise ValueError(f"unknown speaker: {speaker!r}")
 
     speaking_max = speaker == "Max"
-    highlight_y = MAX_PANEL_Y if speaking_max else NOVA_PANEL_Y
+    highlight_x = MAX_PANEL_X if speaking_max else NOVA_PANEL_X
     highlight_color = MAX_ACCENT if speaking_max else NOVA_ACCENT
-    caption_y = 760 if speaking_max else CANVAS_H - PANEL_H + 760
 
     bg = (
-        f"[0:v]drawbox=x=0:y=0:w={CANVAS_W}:h={PANEL_H}:color={MAX_BG}:t=fill,"
-        f"drawbox=x=0:y={PANEL_H}:w={CANVAS_W}:h={PANEL_H}:color={NOVA_BG}:t=fill,"
-        f"drawbox=x=0:y={PANEL_H - 6}:w={CANVAS_W}:h=12:color=0xF59E0B:t=fill,"
-        f"drawbox=x=6:y={highlight_y + 6}:w={CANVAS_W - 12}:h={PANEL_H - 12}:"
+        f"[0:v]drawbox=x=0:y=0:w={HALF_W}:h={CHAR_ZONE_H}:color={MAX_BG}:t=fill,"
+        f"drawbox=x={HALF_W}:y=0:w={HALF_W}:h={CHAR_ZONE_H}:color={NOVA_BG}:t=fill,"
+        f"drawbox=x={HALF_W - 6}:y=0:w=12:h={CHAR_ZONE_H}:color=0xF59E0B:t=fill,"
+        f"drawbox=x={highlight_x + 6}:y=6:w={HALF_W - 12}:h={CHAR_ZONE_H - 12}:"
         f"color={highlight_color}:t=14,"
-        f"drawbox=x=2:y={highlight_y + 2}:w={CANVAS_W - 4}:h={PANEL_H - 4}:"
+        f"drawbox=x={highlight_x + 2}:y=2:w={HALF_W - 4}:h={CHAR_ZONE_H - 4}:"
         f"color=white@0.6:t=6:enable='{PULSE_ENABLE}'[bg]"
     )
 
@@ -196,22 +199,28 @@ def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, captio
         # RGB on white, by design, to keep this assumption simple and true.
         f"[1:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease,"
         f"colorkey=0xFFFFFF:0.12:0.08[maxc];"
-        f"[2:v]scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease,"
+        # hflip mirrors Nova so she visually faces Max (toward the center) instead
+        # of both characters facing the camera dead-on, which read as talking at
+        # the viewer rather than to each other.
+        f"[2:v]hflip,scale={CHAR_DISPLAY_W}:{CHAR_DISPLAY_H}:force_original_aspect_ratio=decrease,"
         f"colorkey=0xFFFFFF:0.12:0.08[novac]"
     )
-    # centered by expression (not a fixed CHAR_X/Y) since force_original_aspect_ratio
-    # doesn't guarantee the scaled image fills CHAR_DISPLAY_W x CHAR_DISPLAY_H exactly -
-    # a portrait narrower or shorter than the box would otherwise land off-center.
-    max_center_y = f"({MAX_PANEL_Y}+({PANEL_H}-overlay_h)/2)"
-    nova_center_y = f"({NOVA_PANEL_Y}+({PANEL_H}-overlay_h)/2)"
+    # centered by expression (not a fixed x/y) since force_original_aspect_ratio
+    # doesn't guarantee the scaled image fills CHAR_DISPLAY_W x CHAR_DISPLAY_H
+    # exactly - a portrait narrower or shorter than the box would otherwise
+    # land off-center within its half.
+    max_center_x = f"({MAX_PANEL_X}+({HALF_W}-overlay_w)/2)"
+    nova_center_x = f"({NOVA_PANEL_X}+({HALF_W}-overlay_w)/2)"
+    center_y = "((" + str(CHAR_ZONE_H) + "-overlay_h)/2)"
     overlays = (
-        f"[bg][maxc]overlay=x=(main_w-overlay_w)/2:y='{max_center_y}'[m1];"
-        f"[m1][novac]overlay=x=(main_w-overlay_w)/2:y='{nova_center_y}'[n1]"
+        f"[bg][maxc]overlay=x='{max_center_x}':y='{center_y}'[m1];"
+        f"[m1][novac]overlay=x='{nova_center_x}':y='{center_y}'[n1]"
     )
 
     caption = (
         f"[n1]drawtext=fontfile={font_path}:textfile={caption_path}:fontcolor=white:"
-        f"fontsize={CAPTION_FONTSIZE}:x=(w-text_w)/2:y={caption_y}:box=1:boxcolor=black@0.55:boxborderw=20[vout]"
+        f"fontsize={CAPTION_FONTSIZE}:x=(w-text_w)/2:y={CHAR_ZONE_H + 60}:"
+        "box=1:boxcolor=black@0.55:boxborderw=20[vout]"
     )
 
     filter_complex = ";".join([bg, scale_chars, overlays, caption])
