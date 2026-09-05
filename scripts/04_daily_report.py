@@ -20,6 +20,11 @@ ACTION_PLAN_SYSTEM_PROMPT = (
 
 def gather_report_data(conn) -> dict:
     q = lambda sql, params=None: db.select_rows(conn, sql, params)  # noqa: E731
+    # the run_id must identify *this* run, not whichever historical topic has
+    # the highest overall_score of all time (which never changes day to day,
+    # and previously caused daily_reports' unique constraint on run_id to
+    # collide every time the same all-time-top topic won that ordering again).
+    latest_run = q("SELECT run_id FROM trend_topics ORDER BY created_at DESC LIMIT 1")
     top_opportunities = q("SELECT * FROM trend_topics ORDER BY overall_score DESC LIMIT 10")
     top_digital_products = q("SELECT * FROM digital_products ORDER BY profitability_score DESC LIMIT 10")
     top_freelancing_niches = q("SELECT * FROM freelancing_opportunities ORDER BY profitability_score DESC LIMIT 10")
@@ -37,7 +42,7 @@ def gather_report_data(conn) -> dict:
         raise RuntimeError("No trend_topics rows found - run 01_trend_research.py first")
 
     return {
-        "run_id": top_opportunities[0]["run_id"],
+        "run_id": latest_run[0]["run_id"],
         "report_date": today(),
         "top_opportunities": top_opportunities,
         "top_digital_products": top_digital_products,
