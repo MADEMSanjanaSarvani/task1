@@ -251,14 +251,25 @@ def main(conn):
             publish_at = None
 
         video_id = upload_video(final_path, seo["seo_title"], seo.get("description", ""), seo.get("tags", []), publish_at)
-        set_thumbnail(video_id, thumb_path)
         log.info("Uploaded to YouTube: video_id=%s publish_at=%s", video_id, publish_at)
+
+        # Best-effort: setting a custom thumbnail requires the channel to have
+        # completed phone verification (a YouTube-side restriction, unrelated to
+        # OAuth scopes). The video itself is already live/scheduled at this point,
+        # so a thumbnail failure must never lose the DB record or the notification
+        # for a video that genuinely exists on the channel.
+        try:
+            set_thumbnail(video_id, thumb_path)
+            thumbnail_status = "set"
+        except Exception as e:  # noqa: BLE001
+            log.warning("set_thumbnail failed for video_id=%s: %s", video_id, e)
+            thumbnail_status = "failed"
 
         db.insert_rows(conn, "published_videos", [{
             "run_id": topic["run_id"], "topic_id": topic["id"], "youtube_video_id": video_id,
             "title": script["title"], "script": transcript,
             "fact_check_confidence": script["fact_check"]["confidence"], "rewrite_count": script["rewrite_count"],
-            "thumbnail_status": "set", "video_url": f"https://youtube.com/shorts/{video_id}",
+            "thumbnail_status": thumbnail_status, "video_url": f"https://youtube.com/shorts/{video_id}",
             "duration_seconds": duration, "status": "scheduled" if needs_review else "published",
             "published_at": publish_at_dt,
         }])
