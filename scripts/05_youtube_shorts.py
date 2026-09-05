@@ -98,6 +98,25 @@ def reviewed_video_count(conn) -> int:
     return rows[0]["n"] if rows else 0
 
 
+def normalize_dialogue(dialogue: list) -> list[dict]:
+    """Coerces whatever shape the LLM actually returned for "dialogue" into
+    {"speaker", "line"} dicts. json_object mode (unlike a strict json_schema)
+    only guarantees valid JSON syntax, not this exact shape - Llama models in
+    particular sometimes return a plain "Speaker: line" string per turn
+    instead of the requested object, which used to crash every downstream
+    consumer with a bare TypeError."""
+    normalized = []
+    for turn in dialogue:
+        if isinstance(turn, dict):
+            normalized.append(turn)
+        elif isinstance(turn, str) and ":" in turn:
+            speaker, _, line = turn.partition(":")
+            normalized.append({"speaker": speaker.strip(), "line": line.strip()})
+        else:
+            log.warning("Dropping unparseable dialogue turn: %r", turn)
+    return normalized
+
+
 def dialogue_transcript(dialogue: list[dict]) -> str:
     return "\n".join(f"{t['speaker']}: {t['line']}" for t in dialogue)
 
@@ -111,6 +130,7 @@ def write_script_with_fact_check(topic: dict) -> dict:
         "Write the Max & Nova dialogue now.",
         temperature=0.7,
     )
+    script["dialogue"] = normalize_dialogue(script["dialogue"])
 
     rewrite_count = 0
     while True:
@@ -134,6 +154,7 @@ def write_script_with_fact_check(topic: dict) -> dict:
             f"Issues to fix: {', '.join(fact_check.get('issues', []))}",
             temperature=0.5,
         )
+        script["dialogue"] = normalize_dialogue(script["dialogue"])
         rewrite_count += 1
 
 
