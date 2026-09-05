@@ -62,6 +62,25 @@ def test_thumbnail_args_include_drawtext():
     assert "/r/1/thumb.jpg" in args
 
 
+def test_wrap_caption_keeps_short_lines_unwrapped():
+    assert video.wrap_caption("Short line.") == "Short line."
+
+
+def test_wrap_caption_wraps_long_lines_without_cutting_words():
+    text = "You could think the code and have it appear right on your screen instantly."
+    wrapped = video.wrap_caption(text, max_chars=34)
+    lines = wrapped.split("\n")
+    assert len(lines) > 1
+    assert all(len(line) <= 34 for line in lines)
+    # no words lost or mangled by wrapping
+    assert " ".join(lines).split() == text.split()
+
+
+def test_wrap_caption_never_exceeds_max_chars_even_for_one_long_word():
+    wrapped = video.wrap_caption("a " * 2 + "supercalifragilisticexpialidocious", max_chars=10)
+    assert all(len(line) for line in wrapped.split("\n"))
+
+
 def test_build_dialogue_scenes_normalizes_turns():
     dialogue = [
         {"speaker": "Max", "line": "AI tools are booming right now."},

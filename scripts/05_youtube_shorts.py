@@ -162,7 +162,7 @@ def build_dialogue_video(scenes: list[dict], render_dir: str) -> str:
 
         tts.synthesize(scene["text"], voice, text_path, audio_path)
         with open(caption_path, "w") as f:
-            f.write(scene["text"])
+            f.write(video.wrap_caption(scene["text"]))
 
         # a little tail padding so the mouth-flap and caption don't cut off
         # the instant the voice line ends

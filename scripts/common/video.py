@@ -28,6 +28,28 @@ MAX_ACCENT, NOVA_ACCENT = "0xF59E0B", "0xEC4899"
 # only needs one portrait per character, not a matched mouth-open/closed pair.
 PULSE_ENABLE = "lt(mod(t,0.4),0.18)"
 
+CAPTION_FONTSIZE = 40
+CAPTION_MAX_CHARS_PER_LINE = 34  # ~fits CAPTION_FONTSIZE within the 1080px canvas width
+
+
+def wrap_caption(text: str, max_chars: int = CAPTION_MAX_CHARS_PER_LINE) -> str:
+    """Word-wraps a caption line into multiple lines so drawtext never renders
+    text wider than the video frame - a single un-wrapped sentence at this
+    fontsize can easily exceed 1080px and run off both edges."""
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) > max_chars and current:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return "\n".join(lines)
+
 
 def _run(args: list[str]):
     log.info("Running: %s", " ".join(args))
@@ -189,7 +211,7 @@ def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, captio
 
     caption = (
         f"[n1]drawtext=fontfile={font_path}:textfile={caption_path}:fontcolor=white:"
-        f"fontsize=46:x=(w-text_w)/2:y={caption_y}:box=1:boxcolor=black@0.55:boxborderw=20[vout]"
+        f"fontsize={CAPTION_FONTSIZE}:x=(w-text_w)/2:y={caption_y}:box=1:boxcolor=black@0.55:boxborderw=20[vout]"
     )
 
     filter_complex = ";".join([bg, scale_chars, overlays, caption])
