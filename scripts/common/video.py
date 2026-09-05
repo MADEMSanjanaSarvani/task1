@@ -26,12 +26,16 @@ HALF_W = CANVAS_W // 2
 CHAR_ZONE_H = 1100
 CHAR_DISPLAY_W, CHAR_DISPLAY_H = 480, 900
 MAX_PANEL_X, NOVA_PANEL_X = 0, HALF_W
-MAX_BG, NOVA_BG = "0x0B1220", "0x2E0C2E"
 MAX_ACCENT, NOVA_ACCENT = "0xF59E0B", "0xEC4899"
 # fraction of each 0.4s cycle the brighter glow ring is shown on top of the
 # speaking panel's static border - a pulsing "who's talking" indicator that
 # only needs one portrait per character, not a matched mouth-open/closed pair.
 PULSE_ENABLE = "lt(mod(t,0.4),0.18)"
+
+# animated "..." speech bubble over whoever's speaking - the dots appear one
+# by one over DOT_CYCLE_SECONDS, then the cycle resets (mod(t, cycle) wraps).
+BUBBLE_W, BUBBLE_H, BUBBLE_Y = 130, 56, 24
+DOT_CYCLE_SECONDS = 0.9
 
 CAPTION_FONTSIZE = 40
 CAPTION_MAX_CHARS_PER_LINE = 34  # ~fits CAPTION_FONTSIZE within the 1080px canvas width
@@ -167,11 +171,12 @@ def build_dialogue_scenes(dialogue: list[dict], max_scenes: int = 14) -> list[di
     return scenes
 
 
-def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, caption_path: str,
-                              audio_path: str, duration: float, out_path: str,
+def build_talking_scene_args(speaker: str, bg_path: str, max_path: str, nova_path: str,
+                              caption_path: str, audio_path: str, duration: float, out_path: str,
                               font_path: str = FONT_PATH_DEFAULT) -> list[str]:
-    """Builds one dialogue-turn scene: Max and Nova side by side (facing each
-    other, not the camera), a pulsing glow ring around whichever one is
+    """Builds one dialogue-turn scene: Max and Nova side by side on the
+    channel's gradient background (facing each other, not the camera), a
+    pulsing glow ring plus an animated speech-bubble icon on whichever one is
     speaking, and the line's caption burned into a full-width strip below -
     with the line's own TTS audio as this scene's soundtrack."""
     if speaker not in ("Max", "Nova"):
@@ -181,11 +186,8 @@ def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, captio
     highlight_x = MAX_PANEL_X if speaking_max else NOVA_PANEL_X
     highlight_color = MAX_ACCENT if speaking_max else NOVA_ACCENT
 
-    bg = (
-        f"[0:v]drawbox=x=0:y=0:w={HALF_W}:h={CHAR_ZONE_H}:color={MAX_BG}:t=fill,"
-        f"drawbox=x={HALF_W}:y=0:w={HALF_W}:h={CHAR_ZONE_H}:color={NOVA_BG}:t=fill,"
-        f"drawbox=x={HALF_W - 6}:y=0:w=12:h={CHAR_ZONE_H}:color=0xF59E0B:t=fill,"
-        f"drawbox=x={highlight_x + 6}:y=6:w={HALF_W - 12}:h={CHAR_ZONE_H - 12}:"
+    highlight = (
+        f"[0:v]drawbox=x={highlight_x + 6}:y=6:w={HALF_W - 12}:h={CHAR_ZONE_H - 12}:"
         f"color={highlight_color}:t=14,"
         f"drawbox=x={highlight_x + 2}:y=2:w={HALF_W - 4}:h={CHAR_ZONE_H - 4}:"
         f"color=white@0.6:t=6:enable='{PULSE_ENABLE}'[bg]"
@@ -217,17 +219,34 @@ def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, captio
         f"[m1][novac]overlay=x='{nova_center_x}':y='{center_y}'[n1]"
     )
 
+    # a small "typing" speech bubble (growing "..." dots) over whoever's
+    # speaking - a lightweight, reliable stand-in for lip-sync, since the
+    # static AI portraits can't support a real matched mouth-open frame.
+    bubble_x = highlight_x + (HALF_W - BUBBLE_W) // 2
+    dot_y = BUBBLE_Y + BUBBLE_H // 2 - 8
+    dot_xs = [bubble_x + 30, bubble_x + 65, bubble_x + 100]
+    bubble = (
+        f"[n1]drawbox=x={bubble_x}:y={BUBBLE_Y}:w={BUBBLE_W}:h={BUBBLE_H}:"
+        f"color=black@0.5:t=fill,"
+        f"drawtext=fontfile={font_path}:text='.':fontsize=40:fontcolor=white:"
+        f"x={dot_xs[0]}:y={dot_y},"
+        f"drawtext=fontfile={font_path}:text='.':fontsize=40:fontcolor=white:"
+        f"x={dot_xs[1]}:y={dot_y}:enable='gte(mod(t,{DOT_CYCLE_SECONDS}),{DOT_CYCLE_SECONDS / 3})',"
+        f"drawtext=fontfile={font_path}:text='.':fontsize=40:fontcolor=white:"
+        f"x={dot_xs[2]}:y={dot_y}:enable='gte(mod(t,{DOT_CYCLE_SECONDS}),{2 * DOT_CYCLE_SECONDS / 3})'[n2]"
+    )
+
     caption = (
-        f"[n1]drawtext=fontfile={font_path}:textfile={caption_path}:fontcolor=white:"
+        f"[n2]drawtext=fontfile={font_path}:textfile={caption_path}:fontcolor=white:"
         f"fontsize={CAPTION_FONTSIZE}:x=(w-text_w)/2:y={CHAR_ZONE_H + 60}:"
         "box=1:boxcolor=black@0.55:boxborderw=20[vout]"
     )
 
-    filter_complex = ";".join([bg, scale_chars, overlays, caption])
+    filter_complex = ";".join([highlight, scale_chars, overlays, bubble, caption])
 
     return [
         "ffmpeg", "-y",
-        "-f", "lavfi", "-i", f"color=c=black:s={CANVAS_W}x{CANVAS_H}",
+        "-loop", "1", "-i", bg_path,
         "-loop", "1", "-i", max_path,
         "-loop", "1", "-i", nova_path,
         "-i", audio_path,
@@ -239,10 +258,10 @@ def build_talking_scene_args(speaker: str, max_path: str, nova_path: str, captio
     ]
 
 
-def render_talking_scene(speaker: str, max_path: str, nova_path: str, caption_path: str,
+def render_talking_scene(speaker: str, bg_path: str, max_path: str, nova_path: str, caption_path: str,
                           audio_path: str, duration: float, out_path: str,
                           font_path: str = FONT_PATH_DEFAULT):
-    _run(build_talking_scene_args(speaker, max_path, nova_path, caption_path,
+    _run(build_talking_scene_args(speaker, bg_path, max_path, nova_path, caption_path,
                                    audio_path, duration, out_path, font_path))
 
 

@@ -112,7 +112,7 @@ def test_build_dialogue_scenes_caps_at_max_scenes():
 
 def test_talking_scene_args_are_argv_list_not_shell_string():
     args = video.build_talking_scene_args(
-        "Max", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+        "Max", "/a/bg.png", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
     )
     assert args[0] == "ffmpeg"
     assert "/r/1/voice.mp3" in args
@@ -126,23 +126,31 @@ def test_talking_scene_args_are_argv_list_not_shell_string():
 
 def test_talking_scene_args_map_audio_from_voice_input():
     args = video.build_talking_scene_args(
-        "Nova", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+        "Nova", "/a/bg.png", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
     )
-    assert "3:a" in args  # the audio input (index 3: color + 2 char images + audio)
+    assert "3:a" in args  # the audio input (index 3: bg + 2 char images + audio)
 
 
 def test_talking_scene_args_scale_preserves_aspect_ratio():
     args = video.build_talking_scene_args(
-        "Max", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+        "Max", "/a/bg.png", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
     )
     filter_arg = args[args.index("-filter_complex") + 1]
     assert "force_original_aspect_ratio=decrease" in filter_arg
 
 
+def test_talking_scene_args_include_speech_bubble_dots():
+    args = video.build_talking_scene_args(
+        "Max", "/a/bg.png", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+    )
+    filter_arg = args[args.index("-filter_complex") + 1]
+    assert filter_arg.count("text='.'") == 3
+
+
 def test_talking_scene_args_rejects_unknown_speaker():
     with pytest.raises(ValueError):
         video.build_talking_scene_args(
-            "Bob", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
+            "Bob", "/a/bg.png", "/a/max.png", "/a/nova.png", "/r/1/cap.txt", "/r/1/voice.mp3", 3.5, "/r/1/out.mp4",
         )
 
 

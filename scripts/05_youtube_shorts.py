@@ -26,9 +26,11 @@ log = logging.getLogger("05_youtube_shorts")
 # dir for the portraits themselves. Whoever's speaking gets a pulsing glow
 # border (see common/video.py) rather than a mouth animation, so only one
 # portrait per character is needed, not a matched pair of expressions.
-CHAR_ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "characters")
+ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets")
+CHAR_ASSETS_DIR = os.path.join(ASSETS_DIR, "characters")
 MAX_PORTRAIT = os.path.join(CHAR_ASSETS_DIR, "max.png")
 NOVA_PORTRAIT = os.path.join(CHAR_ASSETS_DIR, "nova.png")
+SCENE_BG = os.path.join(ASSETS_DIR, "scene_bg.png")
 
 VOICE_BY_SPEAKER = {"Max": tts.MAX_VOICE, "Nova": tts.NOVA_VOICE}
 
@@ -169,7 +171,7 @@ def build_dialogue_video(scenes: list[dict], render_dir: str) -> str:
         duration = video.probe_duration(audio_path) + 0.4
 
         video.render_talking_scene(
-            speaker, MAX_PORTRAIT, NOVA_PORTRAIT,
+            speaker, SCENE_BG, MAX_PORTRAIT, NOVA_PORTRAIT,
             caption_path, audio_path, duration, processed_path, font_path,
         )
         processed_paths.append(processed_path)
