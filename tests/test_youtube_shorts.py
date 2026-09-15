@@ -58,6 +58,20 @@ def test_normalize_dialogue_drops_dicts_missing_speaker_or_line():
     assert normalized == [{"speaker": "Max", "line": "Valid."}]
 
 
+def test_normalize_dialogue_splits_a_whole_string_into_lines_first():
+    """Groq/Llama sometimes returns the entire "dialogue" field as one plain
+    string instead of a list of turns at all. Iterating a raw string yields
+    individual characters, which used to be silently dropped one by one,
+    leaving zero dialogue turns and crashing the ffmpeg concat step
+    downstream with "No files to concat"."""
+    mod = _load_youtube_shorts_module()
+    dialogue = "Max: AI tools are booming.\nNova: Here's how to cash in."
+    assert mod.normalize_dialogue(dialogue) == [
+        {"speaker": "Max", "line": "AI tools are booming."},
+        {"speaker": "Nova", "line": "Here's how to cash in."},
+    ]
+
+
 def test_dialogue_transcript_formats_speaker_and_line():
     mod = _load_youtube_shorts_module()
     dialogue = [{"speaker": "Max", "line": "Hi."}, {"speaker": "Nova", "line": "Hey."}]

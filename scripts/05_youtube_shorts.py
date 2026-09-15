@@ -102,14 +102,18 @@ SPEAKER_KEYS = ("speaker", "name", "character")
 LINE_KEYS = ("line", "text", "dialogue", "content")
 
 
-def normalize_dialogue(dialogue: list) -> list[dict]:
+def normalize_dialogue(dialogue) -> list[dict]:
     """Coerces whatever shape the LLM actually returned for "dialogue" into
     {"speaker", "line"} dicts. json_object mode (unlike a strict json_schema)
     only guarantees valid JSON syntax, not this exact shape - Llama models in
     particular sometimes return a plain "Speaker: line" string per turn
-    instead of the requested object, or a dict using different key names
-    (e.g. "text" instead of "line"), either of which used to crash every
-    downstream consumer with a bare TypeError/KeyError."""
+    instead of the requested object, a dict using different key names (e.g.
+    "text" instead of "line"), or even the whole "dialogue" field as one
+    single string instead of a list of turns. The last case is the nastiest:
+    iterating a raw string yields individual characters, which used to get
+    silently dropped one by one, leaving zero dialogue turns."""
+    if isinstance(dialogue, str):
+        dialogue = [line for line in dialogue.splitlines() if line.strip()]
     normalized = []
     for turn in dialogue:
         if isinstance(turn, dict):
@@ -239,6 +243,10 @@ def main(conn):
     log.info("Script ready after %d rewrite(s), confidence=%s", script["rewrite_count"], script["fact_check"]["confidence"])
 
     scenes = video.build_dialogue_scenes(script["dialogue"])
+    if not scenes:
+        notify_discord(f"⚠️ Shorts script for topic_id {topic['id']} produced zero usable dialogue turns. Skipped instead of publishing an empty video.")
+        log.warning("No usable dialogue turns after normalization for topic_id=%s - skipping", topic["id"])
+        return
     log.info("Split into %d dialogue turns", len(scenes))
 
     run_id = video.safe_run_id(f"{topic['run_id']}-{topic['id']}")
