@@ -98,17 +98,27 @@ def reviewed_video_count(conn) -> int:
     return rows[0]["n"] if rows else 0
 
 
+SPEAKER_KEYS = ("speaker", "name", "character")
+LINE_KEYS = ("line", "text", "dialogue", "content")
+
+
 def normalize_dialogue(dialogue: list) -> list[dict]:
     """Coerces whatever shape the LLM actually returned for "dialogue" into
     {"speaker", "line"} dicts. json_object mode (unlike a strict json_schema)
     only guarantees valid JSON syntax, not this exact shape - Llama models in
     particular sometimes return a plain "Speaker: line" string per turn
-    instead of the requested object, which used to crash every downstream
-    consumer with a bare TypeError."""
+    instead of the requested object, or a dict using different key names
+    (e.g. "text" instead of "line"), either of which used to crash every
+    downstream consumer with a bare TypeError/KeyError."""
     normalized = []
     for turn in dialogue:
         if isinstance(turn, dict):
-            normalized.append(turn)
+            speaker = next((turn[k] for k in SPEAKER_KEYS if turn.get(k)), None)
+            line = next((turn[k] for k in LINE_KEYS if turn.get(k)), None)
+            if speaker and line:
+                normalized.append({"speaker": str(speaker).strip(), "line": str(line).strip()})
+            else:
+                log.warning("Dropping dialogue turn missing speaker/line: %r", turn)
         elif isinstance(turn, str) and ":" in turn:
             speaker, _, line = turn.partition(":")
             normalized.append({"speaker": speaker.strip(), "line": line.strip()})

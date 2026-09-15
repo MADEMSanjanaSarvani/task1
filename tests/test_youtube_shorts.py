@@ -39,6 +39,25 @@ def test_normalize_dialogue_drops_unparseable_turns_without_crashing():
     assert normalized == [{"speaker": "Max", "line": "Valid."}]
 
 
+def test_normalize_dialogue_coerces_dicts_using_alternate_key_names():
+    """Llama sometimes returns dialogue turns as dicts, but with different
+    key names than requested (e.g. "text"/"name" instead of "line"/"speaker")
+    - this used to sail through unnoticed since any dict was passed through
+    as-is, then crash downstream with KeyError: 'line'."""
+    mod = _load_youtube_shorts_module()
+    dialogue = [{"name": "Max", "text": "AI tools are booming."}]
+    assert mod.normalize_dialogue(dialogue) == [
+        {"speaker": "Max", "line": "AI tools are booming."}
+    ]
+
+
+def test_normalize_dialogue_drops_dicts_missing_speaker_or_line():
+    mod = _load_youtube_shorts_module()
+    dialogue = [{"speaker": "Max", "line": "Valid."}, {"foo": "bar"}]
+    normalized = mod.normalize_dialogue(dialogue)
+    assert normalized == [{"speaker": "Max", "line": "Valid."}]
+
+
 def test_dialogue_transcript_formats_speaker_and_line():
     mod = _load_youtube_shorts_module()
     dialogue = [{"speaker": "Max", "line": "Hi."}, {"speaker": "Nova", "line": "Hey."}]
